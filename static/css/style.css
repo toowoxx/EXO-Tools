@@ -1,0 +1,946 @@
+/* =============================================================
+   EXO Tools – Fluent 2 Design System
+   Microsoft design tokens, components and page layouts.
+   Bootstrap is loaded only for responsive grid utilities;
+   every visual component is re-styled here.
+   ============================================================= */
+
+/* ---------------------------------------------------------------
+   Fluent 2 Design Tokens
+   --------------------------------------------------------------- */
+:root {
+  /* ── Brand ─────────────────────────────────────────────────── */
+  --fui-brand:               #0078d4;
+  --fui-brand-hover:         #106ebe;
+  --fui-brand-press:         #005a9e;
+  --fui-brand-subtle:        #eff6fc;
+  --fui-brand-subtle-hover:  #deecf9;
+  --fui-brand-subtle-press:  #c7e0f4;
+
+  /* ── Neutral backgrounds ─────────────────────────────────── */
+  --fui-bg-canvas:    #faf9f8;   /* page background (warm off-white) */
+  --fui-bg-surface:   #ffffff;   /* card / panel surface             */
+  --fui-bg-subtle:    #f5f5f5;   /* striped row / hover row          */
+  --fui-bg-muted:     #edebe9;   /* pressed state / dividers         */
+  --fui-bg-disabled:  #f0f0f0;
+
+  /* ── Neutral foregrounds ────────────────────────────────── */
+  --fui-fg-1:          #242424;  /* primary text                     */
+  --fui-fg-2:          #424242;  /* secondary text                   */
+  --fui-fg-3:          #616161;  /* tertiary / placeholder           */
+  --fui-fg-4:          #767676;  /* hint / caption                   */
+  --fui-fg-disabled:   #bdbdbd;
+
+  /* ── Strokes / borders ─────────────────────────────────── */
+  --fui-stroke-1:      #d1d1d1;  /* default border                   */
+  --fui-stroke-2:      #e5e5e5;  /* subtle border / row divider      */
+  --fui-stroke-strong: #999999;
+
+  /* ── Status colours ────────────────────────────────────── */
+  --fui-danger-fg:     #b10e1c;
+  --fui-danger-bg:     #fde7e9;
+  --fui-danger-border: #f4abba;
+  --fui-warning-fg:    #835b00;
+  --fui-warning-bg:    #fff4ce;
+  --fui-warning-border:#f7e28d;
+  --fui-success-fg:    #107c10;
+  --fui-success-bg:    #dff6dd;
+  --fui-success-border:#a7e3a5;
+  --fui-info-fg:       #0078d4;
+  --fui-info-bg:       #eff6fc;
+  --fui-info-border:   #9dc8f0;
+
+  /* ── Typography ─────────────────────────────────────────── */
+  --fui-font: "Segoe UI Variable Display", "Segoe UI Variable",
+              "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont,
+              "Helvetica Neue", Arial, sans-serif;
+
+  /* type ramp */
+  --fui-fs-100: 10px;   /* caption small   */
+  --fui-fs-200: 12px;   /* caption         */
+  --fui-fs-300: 14px;   /* body            */
+  --fui-fs-400: 16px;   /* body large      */
+  --fui-fs-500: 20px;   /* subtitle        */
+  --fui-fs-600: 24px;   /* title           */
+  --fui-fs-700: 28px;   /* large title     */
+  --fui-fs-800: 32px;   /* display         */
+
+  --fui-lh-300: 20px;
+  --fui-lh-400: 22px;
+  --fui-lh-500: 28px;
+  --fui-lh-600: 32px;
+  --fui-lh-700: 36px;
+
+  --fui-fw-regular:  400;
+  --fui-fw-medium:   500;
+  --fui-fw-semibold: 600;
+  --fui-fw-bold:     700;
+
+  /* ── Border radius ─────────────────────────────────────── */
+  --fui-br-none:   0;
+  --fui-br-sm:     2px;
+  --fui-br-md:     4px;   /* buttons, inputs                  */
+  --fui-br-lg:     8px;   /* cards, panels                    */
+  --fui-br-xl:     12px;  /* modals, large surfaces           */
+  --fui-br-circle: 50%;
+
+  /* ── Depth shadows ─────────────────────────────────────── */
+  --fui-shadow-2:  0 0 2px rgba(0,0,0,.12), 0 1px 2px rgba(0,0,0,.14);
+  --fui-shadow-4:  0 0 2px rgba(0,0,0,.12), 0 2px 4px rgba(0,0,0,.14);
+  --fui-shadow-8:  0 0 2px rgba(0,0,0,.12), 0 4px 8px rgba(0,0,0,.14);
+  --fui-shadow-16: 0 0 2px rgba(0,0,0,.12), 0 8px 16px rgba(0,0,0,.14);
+  --fui-shadow-28: 0 0 8px rgba(0,0,0,.12), 0 14px 28px rgba(0,0,0,.14);
+  --fui-shadow-64: 0 0 8px rgba(0,0,0,.12), 0 32px 64px rgba(0,0,0,.14);
+
+  /* ── Transition speeds ─────────────────────────────────── */
+  --fui-dur-fast:   80ms;
+  --fui-dur-normal: 150ms;
+  --fui-dur-slow:   200ms;
+  --fui-ease:       cubic-bezier(.33,0,.67,1);
+
+  /* ── Shell header ──────────────────────────────────────── */
+  --fui-header-bg:     #1b3a5c;   /* M365 admin-center navy */
+  --fui-header-h:      48px;
+}
+
+/* ---------------------------------------------------------------
+   Global reset / base
+   --------------------------------------------------------------- */
+*, *::before, *::after { box-sizing: border-box; }
+
+html { font-size: 14px; }
+
+body {
+  background-color: var(--fui-bg-canvas);
+  color: var(--fui-fg-1);
+  font-family: var(--fui-font);
+  font-size: var(--fui-fs-300);
+  line-height: var(--fui-lh-300);
+  font-weight: var(--fui-fw-regular);
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Override Bootstrap's default link colour */
+a { color: var(--fui-brand); text-decoration: none; }
+a:hover { color: var(--fui-brand-hover); text-decoration: underline; }
+
+/* ---------------------------------------------------------------
+   Shell header (command bar)
+   --------------------------------------------------------------- */
+.fui-header {
+  background-color: var(--fui-header-bg);
+  height: var(--fui-header-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  box-shadow: 0 2px 4px rgba(0,0,0,.3);
+}
+
+.fui-header-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #fff;
+  font-size: var(--fui-fs-300);
+  font-weight: var(--fui-fw-semibold);
+  text-decoration: none;
+  flex-shrink: 0;
+}
+.fui-header-brand:hover { color: rgba(255,255,255,.9); text-decoration: none; }
+
+/* Waffle/app icon box */
+.fui-header-icon {
+  width: 28px;
+  height: 28px;
+  background: rgba(255,255,255,.15);
+  border-radius: var(--fui-br-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  flex-shrink: 0;
+}
+
+/* Vertical separator */
+.fui-header-sep {
+  width: 1px;
+  height: 20px;
+  background: rgba(255,255,255,.25);
+  margin: 0 4px;
+  flex-shrink: 0;
+}
+
+.fui-header-subtitle {
+  font-size: var(--fui-fs-200);
+  font-weight: var(--fui-fw-regular);
+  color: rgba(255,255,255,.7);
+  margin-left: 2px;
+}
+
+.fui-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Persona in header */
+.fui-header-persona {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: rgba(255,255,255,.85);
+  font-size: var(--fui-fs-200);
+}
+
+.fui-header-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--fui-br-circle);
+  background: rgba(255,255,255,.2);
+  border: 1.5px solid rgba(255,255,255,.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: var(--fui-fw-semibold);
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.fui-header-signout {
+  font-size: var(--fui-fs-200);
+  color: rgba(255,255,255,.8);
+  border: 1px solid rgba(255,255,255,.25);
+  border-radius: var(--fui-br-md);
+  padding: 3px 10px;
+  background: transparent;
+  cursor: pointer;
+  transition: background var(--fui-dur-fast) var(--fui-ease);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  text-decoration: none;
+}
+.fui-header-signout:hover {
+  background: rgba(255,255,255,.12);
+  color: #fff;
+  text-decoration: none;
+}
+
+/* ---------------------------------------------------------------
+   Page content area
+   --------------------------------------------------------------- */
+.fui-page {
+  padding: 28px 24px;
+  min-height: calc(100vh - var(--fui-header-h));
+}
+
+/* Constrain content to a readable max width, centred */
+.fui-page-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+/* ---------------------------------------------------------------
+   Bootstrap utility fallbacks
+   Ordering matters: d-none must be placed BEFORE responsive
+   media-query overrides so that e.g. "d-none d-md-flex" correctly
+   shows the element on desktop (the @media rule wins as it's later).
+   But d-none must be AFTER plain d-flex so that "d-flex d-none"
+   (initially-hidden flex containers) stays hidden.
+   --------------------------------------------------------------- */
+.d-flex   { display: flex !important; }
+.d-inline { display: inline !important; }
+.d-block  { display: block !important; }
+/* d-none overrides d-flex (comes after it in source order) */
+.d-none { display: none !important; }
+/* Responsive overrides – come AFTER d-none so the @media rule wins at >=768px
+   (e.g. persona element: d-none d-md-flex → hidden on mobile, flex on desktop) */
+@media (min-width: 768px) {
+  .d-md-flex   { display: flex !important; }
+  .d-md-inline { display: inline !important; }
+}
+
+/* ---------------------------------------------------------------
+   Fluent Card
+   --------------------------------------------------------------- */
+/* Override Bootstrap .card entirely */
+.card {
+  background: var(--fui-bg-surface) !important;
+  border: 1px solid var(--fui-stroke-2) !important;
+  border-radius: var(--fui-br-lg) !important;
+  box-shadow: var(--fui-shadow-4) !important;
+}
+
+.card-header {
+  background: var(--fui-bg-surface) !important;
+  border-bottom: 1px solid var(--fui-stroke-2) !important;
+  border-radius: var(--fui-br-lg) var(--fui-br-lg) 0 0 !important;
+  padding: 16px 20px !important;
+}
+
+.card-body {
+  padding: 20px !important;
+}
+
+/* Card title text */
+.fui-card-title {
+  font-size: var(--fui-fs-400);
+  font-weight: var(--fui-fw-semibold);
+  color: var(--fui-fg-1);
+  line-height: var(--fui-lh-400);
+  margin: 0;
+}
+
+.fui-card-desc {
+  font-size: var(--fui-fs-300);
+  color: var(--fui-fg-3);
+  margin: 4px 0 0;
+}
+
+/* ---------------------------------------------------------------
+   Fluent Buttons
+   --------------------------------------------------------------- */
+/* Remove Bootstrap .btn base styles we don't want */
+.btn {
+  font-family: var(--fui-font) !important;
+  font-size: var(--fui-fs-300) !important;
+  font-weight: var(--fui-fw-semibold) !important;
+  border-radius: var(--fui-br-md) !important;
+  transition: background var(--fui-dur-fast) var(--fui-ease),
+              border-color var(--fui-dur-fast) var(--fui-ease),
+              color var(--fui-dur-fast) var(--fui-ease) !important;
+  cursor: pointer;
+  line-height: var(--fui-lh-300);
+}
+
+/* Primary (filled) button */
+.btn-primary {
+  background-color: var(--fui-brand) !important;
+  border-color: var(--fui-brand) !important;
+  color: #fff !important;
+  padding: 7px 16px !important;
+}
+.btn-primary:hover, .btn-primary:focus {
+  background-color: var(--fui-brand-hover) !important;
+  border-color: var(--fui-brand-hover) !important;
+  color: #fff !important;
+}
+.btn-primary:active {
+  background-color: var(--fui-brand-press) !important;
+  border-color: var(--fui-brand-press) !important;
+  color: #fff !important;
+}
+.btn-primary:disabled, .btn-primary.disabled {
+  background-color: var(--fui-bg-disabled) !important;
+  border-color: var(--fui-bg-disabled) !important;
+  color: var(--fui-fg-disabled) !important;
+  opacity: 1 !important;
+  cursor: not-allowed;
+}
+
+/* Secondary / default (outline) button */
+.btn-outline-secondary {
+  background-color: var(--fui-bg-surface) !important;
+  border: 1px solid var(--fui-stroke-1) !important;
+  color: var(--fui-fg-1) !important;
+  padding: 5px 12px !important;
+}
+.btn-outline-secondary:hover, .btn-outline-secondary:focus {
+  background-color: var(--fui-bg-subtle) !important;
+  border-color: var(--fui-stroke-1) !important;
+  color: var(--fui-fg-1) !important;
+}
+.btn-outline-secondary:active {
+  background-color: var(--fui-bg-muted) !important;
+}
+
+/* Subtle (ghost) button */
+.btn-link {
+  color: var(--fui-brand) !important;
+  font-weight: var(--fui-fw-regular) !important;
+  padding: 4px 6px !important;
+}
+.btn-link:hover { color: var(--fui-brand-hover) !important; background: transparent !important; }
+
+/* ---------------------------------------------------------------
+   Fluent Text Input
+   --------------------------------------------------------------- */
+.form-control, .form-select {
+  display: block !important;    /* required fallback without Bootstrap */
+  width: 100% !important;       /* fill available width */
+  font-family: var(--fui-font) !important;
+  font-size: var(--fui-fs-300) !important;
+  color: var(--fui-fg-1) !important;
+  background-color: var(--fui-bg-surface) !important;
+  border: 1px solid var(--fui-stroke-1) !important;
+  border-radius: var(--fui-br-md) !important;
+  padding: 6px 10px !important;
+  transition: border-color var(--fui-dur-fast) var(--fui-ease),
+              box-shadow var(--fui-dur-fast) var(--fui-ease) !important;
+  box-shadow: none !important;
+  height: auto !important;
+  line-height: var(--fui-lh-300) !important;
+  box-sizing: border-box !important;
+}
+.form-control::placeholder { color: var(--fui-fg-3) !important; }
+.form-control:focus, .form-select:focus {
+  border-color: var(--fui-brand) !important;
+  box-shadow: inset 0 0 0 1px var(--fui-brand) !important;
+  outline: none !important;
+}
+
+/* Large input (People Picker) */
+.form-control-lg {
+  font-size: var(--fui-fs-300) !important;
+  padding: 9px 12px 9px 44px !important;
+  height: 40px !important;
+  border-radius: var(--fui-br-md) !important;
+}
+
+/* Small input */
+.form-control-sm {
+  font-size: var(--fui-fs-300) !important;
+  padding: 5px 10px !important;
+  height: 32px !important;
+}
+
+.form-label {
+  font-size: var(--fui-fs-300);
+  font-weight: var(--fui-fw-semibold);
+  color: var(--fui-fg-2);
+  margin-bottom: 4px;
+}
+
+/* ---------------------------------------------------------------
+   Fluent Badge
+   --------------------------------------------------------------- */
+/* Override Bootstrap .badge */
+.badge {
+  font-family: var(--fui-font) !important;
+  font-size: var(--fui-fs-200) !important;
+  font-weight: var(--fui-fw-semibold) !important;
+  border-radius: var(--fui-br-md) !important;   /* 4px – not pill */
+  padding: 2px 8px !important;
+  line-height: 16px !important;
+}
+
+/* Fluent badge variants */
+.fui-badge--danger {
+  background-color: var(--fui-danger-bg) !important;
+  color: var(--fui-danger-fg) !important;
+  border: 1px solid var(--fui-danger-border);
+}
+.fui-badge--warning {
+  background-color: var(--fui-warning-bg) !important;
+  color: var(--fui-warning-fg) !important;
+  border: 1px solid var(--fui-warning-border);
+}
+.fui-badge--info {
+  background-color: var(--fui-info-bg) !important;
+  color: var(--fui-info-fg) !important;
+  border: 1px solid var(--fui-info-border);
+}
+.fui-badge--count {
+  background-color: var(--fui-brand) !important;
+  color: #fff !important;
+  border: none;
+  border-radius: 999px !important;
+  min-width: 22px;
+  text-align: center;
+}
+
+/* ---------------------------------------------------------------
+   Fluent Table (DataGrid style)
+   --------------------------------------------------------------- */
+.table {
+  font-family: var(--fui-font) !important;
+  font-size: var(--fui-fs-300) !important;
+  color: var(--fui-fg-1) !important;
+  border-collapse: collapse !important;
+  width: 100%;
+}
+
+.table thead th {
+  font-size: var(--fui-fs-200) !important;
+  font-weight: var(--fui-fw-semibold) !important;
+  text-transform: uppercase !important;
+  letter-spacing: .04em !important;
+  color: var(--fui-fg-3) !important;
+  background-color: var(--fui-bg-subtle) !important;
+  padding: 10px 16px !important;
+  border-bottom: 1px solid var(--fui-stroke-1) !important;
+  white-space: nowrap;
+}
+
+.table tbody td {
+  padding: 12px 16px !important;
+  border-bottom: 1px solid var(--fui-stroke-2) !important;
+  vertical-align: middle !important;
+}
+
+.table tbody tr:last-child td {
+  border-bottom: none !important;
+}
+
+.table-hover tbody tr:hover td {
+  background-color: var(--fui-bg-subtle) !important;
+  transition: background-color var(--fui-dur-fast) var(--fui-ease);
+}
+
+.table-light thead { background-color: var(--fui-bg-subtle) !important; }
+
+/* ---------------------------------------------------------------
+   Fluent MessageBar (alerts)
+   --------------------------------------------------------------- */
+.alert {
+  font-family: var(--fui-font) !important;
+  font-size: var(--fui-fs-300) !important;
+  border-radius: var(--fui-br-md) !important;
+  padding: 12px 16px !important;
+  border: 1px solid transparent !important;
+}
+.alert-danger {
+  background-color: var(--fui-danger-bg) !important;
+  border-color: var(--fui-danger-border) !important;
+  color: var(--fui-danger-fg) !important;
+  border-left: 4px solid var(--fui-danger-fg) !important;
+  border-radius: 0 var(--fui-br-md) var(--fui-br-md) 0 !important;
+}
+.alert-warning {
+  background-color: var(--fui-warning-bg) !important;
+  border-color: var(--fui-warning-border) !important;
+  color: var(--fui-warning-fg) !important;
+  border-left: 4px solid var(--fui-warning-fg) !important;
+  border-radius: 0 var(--fui-br-md) var(--fui-br-md) 0 !important;
+}
+
+/* ---------------------------------------------------------------
+   Fluent Spinner
+   --------------------------------------------------------------- */
+.spinner-border {
+  color: var(--fui-brand) !important;
+  border-width: 3px !important;
+  border-right-color: transparent !important;
+  animation-duration: .7s !important;
+}
+
+/* ---------------------------------------------------------------
+   Fluent Pivot (tab filter bar)
+   --------------------------------------------------------------- */
+.fui-pivot {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.fui-pivot-btn {
+  font-family: var(--fui-font);
+  font-size: var(--fui-fs-300);
+  font-weight: var(--fui-fw-semibold);
+  color: var(--fui-fg-2);
+  background: transparent;
+  border: 1px solid var(--fui-stroke-1);
+  border-radius: var(--fui-br-md);
+  padding: 4px 12px;
+  cursor: pointer;
+  transition: background var(--fui-dur-fast) var(--fui-ease),
+              color var(--fui-dur-fast) var(--fui-ease),
+              border-color var(--fui-dur-fast) var(--fui-ease);
+  line-height: 20px;
+  white-space: nowrap;
+}
+.fui-pivot-btn:hover {
+  background: var(--fui-bg-subtle);
+  border-color: var(--fui-stroke-strong);
+  color: var(--fui-fg-1);
+}
+.fui-pivot-btn.active {
+  background: var(--fui-brand-subtle);
+  border-color: var(--fui-brand);
+  color: var(--fui-brand);
+}
+.fui-pivot-btn.active:hover {
+  background: var(--fui-brand-subtle-hover);
+}
+
+/* ---------------------------------------------------------------
+   People Picker row layout (flex, no Bootstrap grid dependency)
+   --------------------------------------------------------------- */
+.fui-picker-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+}
+
+.fui-picker-field {
+  flex: 1 1 0;
+  min-width: 0;   /* allow truncation */
+}
+
+/* Ensure inner wrapper divs fill the flex item width */
+.fui-picker-field > div,
+.fui-picker-field > label ~ div {
+  width: 100%;
+}
+
+.fui-picker-action {
+  flex: 0 0 200px;
+}
+
+@media (max-width: 600px) {
+  .fui-picker-row  { flex-direction: column; }
+  .fui-picker-action { flex: none; width: 100%; }
+}
+
+/* ---------------------------------------------------------------
+   People Picker
+   --------------------------------------------------------------- */
+.fui-field-prefix {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  padding-left: 13px;
+  color: var(--fui-fg-3);
+  pointer-events: none;
+  z-index: 5;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+}
+
+/* Keep existing search-icon class as an alias */
+.search-icon {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  color: var(--fui-fg-3);
+  padding-left: 13px;
+  z-index: 5;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+}
+
+.autocomplete-list {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: var(--fui-bg-surface);
+  border: 1px solid var(--fui-stroke-1);
+  border-radius: var(--fui-br-md);
+  box-shadow: var(--fui-shadow-16);
+  max-height: 340px;
+  overflow-y: auto;
+  z-index: 1050;
+  list-style: none;
+  padding: 4px 0;
+  margin: 0;
+}
+
+.autocomplete-list li { padding: 0; }
+
+.autocomplete-list .ac-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  width: 100%;
+  text-align: left;
+  transition: background-color var(--fui-dur-fast) var(--fui-ease);
+  font-family: var(--fui-font);
+  color: var(--fui-fg-1);
+}
+.autocomplete-list .ac-item:hover,
+.autocomplete-list .ac-item:focus {
+  background-color: var(--fui-bg-subtle);
+  outline: none;
+}
+.autocomplete-list .ac-item + .ac-item {
+  border-top: 1px solid var(--fui-stroke-2);
+}
+
+/* ---------------------------------------------------------------
+   Fluent Persona avatar
+   --------------------------------------------------------------- */
+.avatar {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--fui-br-circle);
+  background: var(--fui-brand);
+  color: #fff;
+  font-size: 12px;
+  font-weight: var(--fui-fw-semibold);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+/* ---------------------------------------------------------------
+   Selected user tag (Fluent Tag component)
+   --------------------------------------------------------------- */
+.fui-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--fui-brand-subtle);
+  border: 1px solid var(--fui-brand-subtle-press);
+  border-radius: var(--fui-br-md);
+  padding: 3px 10px;
+  font-size: var(--fui-fs-300);
+  color: var(--fui-fg-1);
+  font-weight: var(--fui-fw-regular);
+}
+.fui-tag-dismiss {
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--fui-fg-3);
+  display: flex;
+  align-items: center;
+  transition: color var(--fui-dur-fast) var(--fui-ease);
+  font-size: 14px;
+  line-height: 1;
+  margin-left: 2px;
+}
+.fui-tag-dismiss:hover { color: var(--fui-danger-fg); }
+
+/* ---------------------------------------------------------------
+   Summary metrics strip (inside results card)
+   --------------------------------------------------------------- */
+.fui-metrics {
+  display: flex;
+  border-bottom: 1px solid var(--fui-stroke-2);
+}
+
+.summary-col {
+  flex: 1;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  cursor: default;
+  transition: background-color var(--fui-dur-normal) var(--fui-ease);
+  border-right: 1px solid var(--fui-stroke-2);
+}
+.summary-col:last-child { border-right: none; }
+
+.summary-col[role="button"] { cursor: pointer; }
+.summary-col[role="button"]:hover { background-color: var(--fui-bg-subtle); }
+.summary-col[role="button"]:active { background-color: var(--fui-bg-muted); }
+.summary-col.active-metric { background-color: var(--fui-brand-subtle); }
+
+/* ---------------------------------------------------------------
+   Loading card
+   --------------------------------------------------------------- */
+.fui-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  gap: 16px;
+}
+
+.fui-loading-ring {
+  width: 36px;
+  height: 36px;
+  border: 3px solid var(--fui-stroke-2);
+  border-top-color: var(--fui-brand);
+  border-radius: 50%;
+  animation: fui-spin .7s linear infinite;
+}
+@keyframes fui-spin { to { transform: rotate(360deg); } }
+
+/* ---------------------------------------------------------------
+   Empty state
+   --------------------------------------------------------------- */
+.fui-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  gap: 8px;
+  color: var(--fui-fg-3);
+}
+.fui-empty-icon { font-size: 40px; color: var(--fui-success-fg); }
+.fui-empty-title {
+  font-size: var(--fui-fs-400);
+  font-weight: var(--fui-fw-semibold);
+  color: var(--fui-fg-2);
+}
+
+/* ---------------------------------------------------------------
+   Filters bar
+   --------------------------------------------------------------- */
+.fui-filters {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--fui-bg-canvas);
+  border-bottom: 1px solid var(--fui-stroke-2);
+  flex-wrap: wrap;
+}
+
+.fui-filter-input {
+  flex: 0 0 auto;
+  min-width: 220px;
+  max-width: 320px;
+}
+
+/* ---------------------------------------------------------------
+   Login page
+   --------------------------------------------------------------- */
+.fui-login-bg {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    linear-gradient(160deg, #0f2d4a 0%, #1b3a5c 45%, #0078d4 100%);
+  padding: 24px;
+}
+
+.fui-login-card {
+  background: var(--fui-bg-surface);
+  border-radius: var(--fui-br-xl);
+  box-shadow: var(--fui-shadow-64);
+  width: 100%;
+  max-width: 400px;
+  padding: 40px 36px 32px;
+}
+
+.fui-login-logo {
+  width: 44px;
+  height: 44px;
+  margin-bottom: 20px;
+}
+
+.fui-login-title {
+  font-size: var(--fui-fs-600);
+  font-weight: var(--fui-fw-semibold);
+  color: var(--fui-fg-1);
+  line-height: var(--fui-lh-600);
+  margin: 0 0 4px;
+}
+
+.fui-login-sub {
+  font-size: var(--fui-fs-300);
+  color: var(--fui-fg-3);
+  margin: 0 0 28px;
+}
+
+.fui-login-divider {
+  border: none;
+  border-top: 1px solid var(--fui-stroke-2);
+  margin: 24px 0;
+}
+
+.fui-login-footer {
+  font-size: var(--fui-fs-200);
+  color: var(--fui-fg-4);
+  text-align: center;
+}
+
+/* Microsoft sign-in button */
+.fui-msft-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  background: var(--fui-brand);
+  color: #fff;
+  border: none;
+  border-radius: var(--fui-br-md);
+  font-family: var(--fui-font);
+  font-size: var(--fui-fs-300);
+  font-weight: var(--fui-fw-semibold);
+  padding: 11px 16px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background var(--fui-dur-fast) var(--fui-ease);
+  line-height: 20px;
+}
+.fui-msft-btn:hover {
+  background: var(--fui-brand-hover);
+  color: #fff;
+  text-decoration: none;
+}
+.fui-msft-btn:active { background: var(--fui-brand-press); }
+
+/* ---------------------------------------------------------------
+   Misc utility overrides
+   --------------------------------------------------------------- */
+/* Bootstrap utility fallbacks (cont.) */
+.position-relative { position: relative !important; }
+.position-absolute { position: absolute !important; }
+.overflow-hidden   { overflow: hidden !important; }
+.flex-grow-1       { flex-grow: 1 !important; }
+.text-truncate     { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fw-semibold       { font-weight: 600 !important; }
+.fw-bold           { font-weight: 700 !important; }
+.small             { font-size: 12px !important; }
+.w-100             { width: 100% !important; }
+.mt-3              { margin-top: 12px !important; }
+.ms-1              { margin-left: 4px !important; }
+.ms-2              { margin-left: 8px !important; }
+.me-1              { margin-right: 4px !important; }
+.me-2              { margin-right: 8px !important; }
+.mb-0              { margin-bottom: 0 !important; }
+.mb-1              { margin-bottom: 4px !important; }
+.mb-4              { margin-bottom: 20px !important; }
+.gap-2             { gap: 8px !important; }
+.align-items-center { align-items: center !important; }
+.justify-content-between { justify-content: space-between !important; }
+.flex-wrap         { flex-wrap: wrap !important; }
+.flex-shrink-0     { flex-shrink: 0 !important; }
+.end-0             { right: 0 !important; }
+.top-50            { top: 50% !important; }
+.translate-middle-y { transform: translateY(-50%) !important; }
+.pe-3              { padding-right: 12px !important; }
+
+/* Bootstrap text-muted → Fluent secondary foreground */
+.text-muted { color: var(--fui-fg-3) !important; }
+
+/* Bootstrap text-primary */
+.text-primary { color: var(--fui-brand) !important; }
+
+/* Bootstrap bg-light → Fluent canvas background */
+.bg-light { background-color: var(--fui-bg-canvas) !important; }
+
+/* Remove Bootstrap's default card shadow (we set our own above) */
+.shadow-sm { box-shadow: var(--fui-shadow-4) !important; }
+
+/* Scrollbar styling (Chromium) */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #c8c8c8; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #a0a0a0; }
+
+/* Focus ring (accessibility) */
+:focus-visible {
+  outline: 2px solid var(--fui-brand);
+  outline-offset: 2px;
+}
+

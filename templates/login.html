@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}EXO Tools – Sign In{% endblock %}
+
+{% block body %}
+<div class="fui-login-bg">
+  <div class="fui-login-card">
+
+    <!-- Microsoft Exchange-style logo -->
+    <svg class="fui-login-logo" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="44" height="44" rx="8" fill="#0078d4"/>
+      <path d="M10 16l12 8 12-8" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      <rect x="10" y="14" width="24" height="16" rx="2" stroke="white" stroke-width="1.8" fill="none"/>
+    </svg>
+
+    <h1 class="fui-login-title">EXO Tools</h1>
+    <p class="fui-login-sub">Mailbox Permission Search</p>
+
+    <!-- Error message bar -->
+    {% if error %}
+    <div class="alert alert-danger d-flex align-items-start gap-2 mb-4" role="alert">
+      <i class="bi bi-exclamation-circle-fill flex-shrink-0 mt-1" style="font-size:15px;"></i>
+      <span style="font-size:13px;">{{ error }}</span>
+    </div>
+    {% endif %}
+
+    <!-- Sign-in button -->
+    {% if auth_url %}
+    <a href="{{ auth_url }}" class="fui-msft-btn">
+      <!-- Microsoft 4-colour logo -->
+      <svg width="20" height="20" viewBox="0 0 21 21" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <rect x="1" y="1" width="9" height="9" fill="#F25022"/>
+        <rect x="11" y="1" width="9" height="9" fill="#7FBA00"/>
+        <rect x="1" y="11" width="9" height="9" fill="#00A4EF"/>
+        <rect x="11" y="11" width="9" height="9" fill="#FFB900"/>
+      </svg>
+      Sign in with Microsoft 365
+    </a>
+    {% else %}
+    <div class="alert alert-warning d-flex align-items-center gap-2" role="alert">
+      <i class="bi bi-gear-fill flex-shrink-0"></i>
+      <span style="font-size:13px;">Authentication is not configured. Please contact your administrator.</span>
+    </div>
+    {% endif %}
+
+    <hr class="fui-login-divider" />
+
+    <p class="fui-login-footer">
+      <i class="bi bi-shield-check me-1" style="color:#107c10;"></i>
+      Access is restricted to authorised M365 administrators.
+    </p>
+
+  </div>
+</div>
+{% endblock %}

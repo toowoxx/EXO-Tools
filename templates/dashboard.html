@@ -1,0 +1,207 @@
+{% extends "base.html" %}
+{% block title %}EXO Tools – Mailbox Permission Search{% endblock %}
+
+{% block body %}
+
+<!-- ── Fluent Shell Header (command bar) ─────────────────────── -->
+<header class="fui-header">
+  <!-- Left: brand -->
+  <a class="fui-header-brand" href="/">
+    <span class="fui-header-icon">
+      <svg width="16" height="16" viewBox="0 0 20 20" fill="white" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M3 5.5l7 4.5 7-4.5M3 4h14a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V5a1 1 0 011-1z" stroke="white" stroke-width="1.4" fill="none" stroke-linejoin="round"/>
+      </svg>
+    </span>
+    EXO Tools
+    <span class="fui-header-sep"></span>
+    <span class="fui-header-subtitle">Exchange Online</span>
+  </a>
+
+  <!-- Right: user persona + sign-out -->
+  <div class="fui-header-right">
+    <div class="fui-header-persona d-none d-md-flex">
+      <div class="fui-header-avatar" aria-hidden="true">
+        {{ (user.get('name') or user.get('preferred_username', 'U'))[0].upper() }}
+      </div>
+      <span>{{ user.get('name') or user.get('preferred_username', '') }}</span>
+    </div>
+    <a href="/logout" class="fui-header-signout">
+      <i class="bi bi-box-arrow-right" aria-hidden="true"></i>
+      Sign out
+    </a>
+  </div>
+</header>
+
+<!-- ── Page content ─────────────────────────────────────────── -->
+<main class="fui-page">
+<div class="fui-page-inner">
+
+  <!-- ── People Picker card ───────────────────────────────── -->
+  <div class="card mb-4">
+    <div class="card-body" style="padding-bottom:16px!important;">
+
+      <h2 class="fui-card-title mb-1">
+        <i class="bi bi-search me-2" style="color:var(--fui-brand);font-size:18px;" aria-hidden="true"></i>
+        Mailbox Permission Search
+      </h2>
+      <p class="fui-card-desc mb-4">
+        Select a user to see all mailboxes they have delegated access to in Exchange Online.
+      </p>
+
+      <!-- People Picker row: CSS flex so it works without Bootstrap grid -->
+      <div class="fui-picker-row">
+
+        <!-- People Picker input -->
+        <div class="fui-picker-field">
+          <label for="userSearch" class="form-label">User</label>
+          <div class="position-relative">
+            <span class="search-icon" aria-hidden="true">
+              <i class="bi bi-person-search" style="font-size:16px;"></i>
+            </span>
+            <input
+              type="text"
+              id="userSearch"
+              class="form-control form-control-lg"
+              placeholder="Type a name or email address…"
+              autocomplete="off"
+              spellcheck="false"
+              aria-label="Search for a user"
+              aria-haspopup="listbox"
+              aria-expanded="false"
+            />
+            <!-- Search spinner -->
+            <div id="searchSpinner" class="position-absolute end-0 top-50 translate-middle-y pe-3 d-none" aria-hidden="true">
+              <div class="fui-loading-ring" style="width:18px;height:18px;border-width:2px;"></div>
+            </div>
+            <!-- Autocomplete dropdown -->
+            <ul id="searchDropdown" class="autocomplete-list d-none" role="listbox" aria-label="User suggestions"></ul>
+          </div>
+        </div>
+
+        <!-- Check Permissions button -->
+        <div class="fui-picker-action">
+          <button id="checkBtn" class="btn btn-primary" disabled style="height:40px;width:100%;white-space:nowrap;">
+            <i class="bi bi-shield-lock" style="margin-right:8px;" aria-hidden="true"></i>Check Permissions
+          </button>
+        </div>
+
+      </div><!-- /fui-picker-row -->
+
+      <!-- Selected user tag -->
+      <div id="selectedPill" class="mt-3 d-none">
+        <span class="fui-tag">
+          <i class="bi bi-person-check" style="color:var(--fui-brand);font-size:14px;" aria-hidden="true"></i>
+          <span id="pillName" class="fw-semibold"></span>
+          <span id="pillUpn" class="text-muted" style="font-size:12px;"></span>
+        </span>
+        <button id="clearBtn" class="fui-tag-dismiss ms-1" aria-label="Clear selection">
+          <i class="bi bi-x-circle" aria-hidden="true"></i>
+        </button>
+      </div>
+
+    </div><!-- /card-body -->
+  </div><!-- /people picker card -->
+
+
+  <!-- ── Results area ─────────────────────────────────────── -->
+  <div id="resultsArea">
+
+    <!-- Loading state -->
+    <div id="loadingCard" class="card mb-4 d-none">
+      <div class="fui-loading">
+        <div class="fui-loading-ring" role="status" aria-label="Searching Exchange Online…"></div>
+        <p class="fui-card-title" style="font-size:16px;margin:0;">Searching Exchange Online…</p>
+        <p class="fui-card-desc" style="margin:0;text-align:center;">
+          This can take several minutes on large tenants. Please wait.
+        </p>
+      </div>
+    </div>
+
+    <!-- Error message bar -->
+    <div id="errorAlert" class="alert alert-danger d-flex align-items-start gap-2 mb-4 d-none" role="alert">
+      <i class="bi bi-exclamation-circle-fill flex-shrink-0 mt-1" style="font-size:16px;"></i>
+      <span id="errorMsg"></span>
+    </div>
+
+    <!-- Results card -->
+    <div id="resultsCard" class="card d-none">
+
+      <!-- Card header -->
+      <div class="card-header d-flex flex-wrap align-items-center justify-content-between gap-2">
+        <div>
+          <h2 class="fui-card-title" style="font-size:16px;">
+            Permissions for
+            <span id="resultUserName" style="color:var(--fui-brand);"></span>
+          </h2>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          <span id="totalBadge" class="badge fui-badge--count"></span>
+          <button id="exportBtn" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-download me-1" aria-hidden="true"></i>Export CSV
+          </button>
+        </div>
+      </div>
+
+      <!-- Summary metrics -->
+      <div id="summaryStrip" class="fui-metrics"></div>
+
+      <!-- Filter bar -->
+      <div class="fui-filters">
+        <div class="fui-filter-input">
+          <input
+            type="text"
+            id="textFilter"
+            class="form-control form-control-sm"
+            placeholder="Filter by mailbox name or UPN…"
+            aria-label="Filter results"
+          />
+        </div>
+        <div class="fui-pivot" id="typeFilter" role="group" aria-label="Filter by permission type">
+          <button type="button" class="fui-pivot-btn active" data-ptype="all">All</button>
+          <button type="button" class="fui-pivot-btn" data-ptype="FullAccess">Full Access</button>
+          <button type="button" class="fui-pivot-btn" data-ptype="SendAs">Send As</button>
+          <button type="button" class="fui-pivot-btn" data-ptype="SendOnBehalf">Send on Behalf</button>
+        </div>
+      </div>
+
+      <!-- Data table -->
+      <div class="table-responsive" style="border-radius:0 0 var(--fui-br-lg) var(--fui-br-lg);overflow:hidden;">
+        <table class="table table-hover mb-0" id="permTable" aria-label="Mailbox permissions">
+          <thead>
+            <tr>
+              <th scope="col" style="padding-left:20px!important;">Mailbox</th>
+              <th scope="col">UPN / Email</th>
+              <th scope="col">Permission</th>
+              <th scope="col">Mailbox Type</th>
+            </tr>
+          </thead>
+          <tbody id="permTableBody"></tbody>
+        </table>
+      </div>
+
+      <!-- Empty state: no permissions -->
+      <div id="emptyState" class="fui-empty d-none">
+        <i class="bi bi-shield-check fui-empty-icon" aria-hidden="true"></i>
+        <p class="fui-empty-title">No Permissions Found</p>
+        <p class="fui-card-desc" style="text-align:center;max-width:340px;">
+          This user has no delegated access to any other mailboxes in the tenant.
+        </p>
+      </div>
+
+      <!-- Empty state: filter has no matches -->
+      <div id="filterEmptyState" class="fui-empty d-none">
+        <i class="bi bi-funnel fui-empty-icon" style="color:var(--fui-fg-4);" aria-hidden="true"></i>
+        <p class="fui-empty-title" style="color:var(--fui-fg-3);">No results match the current filter.</p>
+      </div>
+
+    </div><!-- /resultsCard -->
+  </div><!-- /resultsArea -->
+
+</div><!-- /fui-page-inner -->
+</main>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+{% endblock %}

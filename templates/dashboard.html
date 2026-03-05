@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+{% block title %}EXO Tools – Mailbox Permission Search{% endblock %}
+
+{% block body %}
+<!-- Navbar -->
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm">
+  <div class="container-fluid px-4">
+    <a class="navbar-brand fw-bold d-flex align-items-center gap-2" href="/">
+      <i class="bi bi-envelope-check-fill"></i>
+      EXO Tools
+    </a>
+    <div class="d-flex align-items-center gap-3">
+      <span class="navbar-text text-white-50 d-none d-md-inline">
+        <i class="bi bi-person-circle me-1"></i>
+        {{ user.get('name') or user.get('preferred_username', '') }}
+      </span>
+      <a href="/logout" class="btn btn-outline-light btn-sm">
+        <i class="bi bi-box-arrow-right me-1"></i>Sign Out
+      </a>
+    </div>
+  </div>
+</nav>
+
+<!-- Main content -->
+<main class="container-lg py-4 px-3 px-md-4">
+
+  <!-- Search card -->
+  <div class="card shadow-sm mb-4">
+    <div class="card-header bg-white border-bottom">
+      <h5 class="mb-0 fw-semibold">
+        <i class="bi bi-search me-2 text-primary"></i>
+        Reverse Mailbox Permission Search
+      </h5>
+    </div>
+    <div class="card-body">
+      <p class="text-muted mb-3">
+        Select a user to see all mailboxes they have delegated access to in Exchange Online.
+      </p>
+
+      <div class="row g-3 align-items-end">
+        <!-- People Picker -->
+        <div class="col-md-8">
+          <label for="userSearch" class="form-label fw-semibold">User</label>
+          <div class="position-relative">
+            <span class="input-group-text search-icon">
+              <i class="bi bi-person-search"></i>
+            </span>
+            <input
+              type="text"
+              id="userSearch"
+              class="form-control form-control-lg ps-5"
+              placeholder="Type a name or email address…"
+              autocomplete="off"
+              spellcheck="false"
+            />
+            <div id="searchSpinner" class="position-absolute end-0 top-50 translate-middle-y pe-3 d-none">
+              <div class="spinner-border spinner-border-sm text-secondary" role="status">
+                <span class="visually-hidden">Searching…</span>
+              </div>
+            </div>
+            <!-- Autocomplete dropdown -->
+            <ul id="searchDropdown" class="autocomplete-list d-none" role="listbox" aria-label="User suggestions"></ul>
+          </div>
+        </div>
+
+        <!-- Check button -->
+        <div class="col-md-4">
+          <button id="checkBtn" class="btn btn-primary btn-lg w-100" disabled>
+            <i class="bi bi-shield-lock me-2"></i>Check Permissions
+          </button>
+        </div>
+      </div>
+
+      <!-- Selected user pill -->
+      <div id="selectedPill" class="mt-3 d-none">
+        <span class="badge rounded-pill bg-primary-subtle text-primary border border-primary-subtle fs-6 py-2 px-3">
+          <i class="bi bi-person-check me-2"></i>
+          <span id="pillName"></span>
+          <span id="pillUpn" class="fw-normal opacity-75 ms-1 small"></span>
+        </span>
+        <button id="clearBtn" class="btn btn-sm btn-link text-danger ms-1 p-0" aria-label="Clear selection">
+          <i class="bi bi-x-circle"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Results area -->
+  <div id="resultsArea">
+
+    <!-- Loading -->
+    <div id="loadingCard" class="card shadow-sm mb-4 d-none">
+      <div class="card-body text-center py-5">
+        <div class="spinner-border text-primary mb-3" style="width:3rem;height:3rem;" role="status">
+          <span class="visually-hidden">Loading…</span>
+        </div>
+        <h5 class="text-muted">Searching Exchange Online…</h5>
+        <p class="text-muted small mb-0">
+          This can take several minutes on large tenants. Please wait.
+        </p>
+      </div>
+    </div>
+
+    <!-- Error -->
+    <div id="errorAlert" class="alert alert-danger d-flex align-items-start gap-2 d-none" role="alert">
+      <i class="bi bi-exclamation-triangle-fill flex-shrink-0 mt-1"></i>
+      <span id="errorMsg"></span>
+    </div>
+
+    <!-- Results table -->
+    <div id="resultsCard" class="card shadow-sm d-none">
+      <div class="card-header bg-white border-bottom d-flex flex-wrap align-items-center justify-content-between gap-2">
+        <h5 class="mb-0 fw-semibold">
+          <i class="bi bi-table me-2 text-primary"></i>
+          Permissions for <span id="resultUserName" class="text-primary"></span>
+        </h5>
+        <div class="d-flex align-items-center gap-2">
+          <span id="totalBadge" class="badge bg-primary rounded-pill"></span>
+          <button id="exportBtn" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-download me-1"></i>Export CSV
+          </button>
+        </div>
+      </div>
+
+      <!-- Summary strip -->
+      <div id="summaryStrip" class="row g-0 border-bottom text-center"></div>
+
+      <!-- Filters -->
+      <div class="p-3 bg-light border-bottom">
+        <div class="row g-2 align-items-center">
+          <div class="col-md-5">
+            <input
+              type="text"
+              id="textFilter"
+              class="form-control form-control-sm"
+              placeholder="Filter by mailbox name or UPN…"
+            />
+          </div>
+          <div class="col-md-7">
+            <div class="btn-group btn-group-sm" id="typeFilter" role="group" aria-label="Filter by permission type">
+              <button type="button" class="btn btn-outline-primary active" data-ptype="all">All</button>
+              <button type="button" class="btn btn-outline-danger"  data-ptype="FullAccess">Full Access</button>
+              <button type="button" class="btn btn-outline-warning" data-ptype="SendAs">Send As</button>
+              <button type="button" class="btn btn-outline-info"    data-ptype="SendOnBehalf">Send on Behalf</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Table -->
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0" id="permTable">
+          <thead class="table-light">
+            <tr>
+              <th scope="col">Mailbox</th>
+              <th scope="col">UPN / Email</th>
+              <th scope="col">Type</th>
+              <th scope="col">Mailbox Type</th>
+            </tr>
+          </thead>
+          <tbody id="permTableBody"></tbody>
+        </table>
+      </div>
+
+      <!-- Empty state (no permissions) -->
+      <div id="emptyState" class="text-center py-5 d-none">
+        <i class="bi bi-shield-check text-success" style="font-size:3rem;"></i>
+        <h5 class="mt-3">No Permissions Found</h5>
+        <p class="text-muted">
+          This user has no delegated access to any other mailboxes in the tenant.
+        </p>
+      </div>
+
+      <!-- Empty state (filter has no matches) -->
+      <div id="filterEmptyState" class="text-center py-4 d-none text-muted small">
+        <i class="bi bi-funnel me-1"></i>No results match the current filter.
+      </div>
+
+    </div><!-- /resultsCard -->
+  </div><!-- /resultsArea -->
+
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+{% endblock %}

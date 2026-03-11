@@ -42,13 +42,35 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 app.config.from_object(Config)
 
-# Ensure the session directory exists before Flask-Session initialises.
-# On Azure App Service /home is a persistent mount shared across all
-# instances, so sessions survive restarts and scale-out.  The directory
-# is created here so that any filesystem error surfaces at startup rather
-# than silently falling back to cookie-based sessions.
-_session_dir = app.config.get("SESSION_FILE_DIR", "/home/flask_session")
-os.makedirs(_session_dir, exist_ok=True)
+# Ensure the session directory exists and is writable before Flask-Session
+# initialises.  /home is a persistent Azure Files mount on App Service but
+# some tiers or Zip-deployed apps make it read-only at startup; /tmp is
+# always writable and is the safe fallback (non-persistent, but sessions
+# are short-lived anyway).
+def _find_session_dir(preferred: str) -> str:
+    """Return the first writable candidate directory, creating it if needed."""
+    for candidate in [preferred, "/tmp/flask_session"]:
+        try:
+            os.makedirs(candidate, exist_ok=True)
+            probe = os.path.join(candidate, ".write_probe")
+            with open(probe, "w") as _f:
+                pass
+            os.remove(probe)
+            return candidate
+        except OSError:
+            logger.warning("Session directory not writable: %s – trying next", candidate)
+    raise OSError(
+        "No writable session directory found. "
+        "Tried: %s and /tmp/flask_session. "
+        "Set SESSION_FILE_DIR to a writable path." % preferred
+    )
+
+
+_session_dir = _find_session_dir(
+    app.config.get("SESSION_FILE_DIR", "/home/flask_session")
+)
+logger.info("Using session directory: %s", _session_dir)
+
 # Wire up the cachelib FileSystemCache directly so Flask-Session uses the
 # modern, non-deprecated SESSION_TYPE="cachelib" path.
 app.config["SESSION_CACHELIB"] = FileSystemCache(
@@ -96,17 +118,18 @@ def _load_cache() -> msal.SerializableTokenCache:
 
 def _save_cache(cache: msal.SerializableTokenCache) -> None:
     if cache.has_state_changed:
-        # Strip access tokens before persisting to the session.  Access tokens
-        # are large (~2 KB each) and short-lived; MSAL will silently refresh
-        # them using the stored refresh token.  Keeping them out of the session
-        # ensures the payload stays well below the 4 KB browser cookie limit
-        # in case server-side storage is ever bypassed.
+        # Strip large short-lived token blobs before persisting to the
+        # session.  MSAL can silently re-acquire access tokens using the
+        # refresh token, and the ID token is already decoded into
+        # session["user"].  Removing both keeps the serialised cache
+        # under ~2 KB which fits comfortably inside the 4 KB cookie limit
+        # even if server-side session storage is ever unavailable.
         #
-        # Note: the in-memory `cache` object is intentionally left intact so
-        # MSAL can continue using the cached access token for the remainder of
-        # this request.  Only the persisted (session) copy is stripped.
+        # The in-memory `cache` object is left intact so MSAL can continue
+        # using cached tokens for the remainder of the current request.
         cache_data = json.loads(cache.serialize())
         cache_data.pop("AccessToken", None)
+        cache_data.pop("IdToken", None)
         session["token_cache"] = json.dumps(cache_data)
 
 
@@ -240,7 +263,23 @@ def callback():
                 error="Access denied. Your account is not in the required group.",
             ), 403
 
-    session["user"] = result.get("id_token_claims", {})
+    # Store only the essential identity claims.  The raw id_token_claims
+    # dict can contain dozens of Azure AD-specific entries (group GUIDs,
+    # xms_* extension claims, nonce, etc.) that balloon the session payload
+    # well past the 4 KB browser cookie limit.  We persist only what the
+    # application actually reads.
+    claims = result.get("id_token_claims", {})
+    session["user"] = {
+        "name": claims.get("name", ""),
+        "preferred_username": claims.get("preferred_username", ""),
+        "oid": claims.get("oid", ""),
+        "tid": claims.get("tid", ""),
+        # Keep the groups claim for the fast-path group-membership check.
+        # Azure AD only includes groups here when the count is small (<= 6 by
+        # default); if the user is in many groups the claim is absent and we
+        # fall through to the Graph API check automatically.
+        "groups": claims.get("groups", []),
+    }
     _save_cache(cache)
 
     next_url = session.pop("next", url_for("index"))

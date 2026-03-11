@@ -21,6 +21,7 @@ from flask import (
     session,
     url_for,
 )
+from flask_session import Session
 
 from config import Config
 
@@ -38,6 +39,10 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 app = Flask(__name__)
 app.config.from_object(Config)
+# Session(app) must be called after app.config.from_object so that
+# SESSION_TYPE and SESSION_FILE_DIR are already set when Flask-Session
+# initialises the server-side storage backend.
+Session(app)
 
 
 # ---------------------------------------------------------------------------

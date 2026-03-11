@@ -13,6 +13,17 @@ class Config:
     # Use secure cookies in production (HTTPS)
     SESSION_COOKIE_SECURE = os.environ.get("FLASK_ENV", "production") == "production"
 
+    # Server-side session storage (Flask-Session).
+    # Keeps the session cookie small by storing data on the server filesystem
+    # rather than encoding it into the cookie itself.
+    # Set SESSION_FILE_DIR to a persistent, non-world-readable directory in
+    # production – e.g. /home/flask_session on Azure App Service (the /home
+    # mount persists across restarts and is not accessible to other apps).
+    # Flask-Session creates each session file with mode 0600 (owner-only).
+    SESSION_TYPE = "filesystem"
+    SESSION_FILE_DIR = os.environ.get("SESSION_FILE_DIR", "/tmp/flask_session")
+    SESSION_PERMANENT = False
+
     # ----------------------------------------------------------------
     # Azure AD App Registration (user authentication + Graph API)
     # ----------------------------------------------------------------

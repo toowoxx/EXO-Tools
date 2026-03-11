@@ -13,15 +13,16 @@ class Config:
     # Use secure cookies in production (HTTPS)
     SESSION_COOKIE_SECURE = os.environ.get("FLASK_ENV", "production") == "production"
 
-    # Server-side session storage (Flask-Session).
+    # Server-side session storage (Flask-Session with cachelib backend).
     # Keeps the session cookie small by storing data on the server filesystem
     # rather than encoding it into the cookie itself.
-    # Set SESSION_FILE_DIR to a persistent, non-world-readable directory in
-    # production – e.g. /home/flask_session on Azure App Service (the /home
-    # mount persists across restarts and is not accessible to other apps).
+    #
+    # On Azure App Service the /home mount is persistent across restarts and
+    # shared across all instances, so it is used as the default.  For Docker
+    # or local dev you can override via the SESSION_FILE_DIR env var.
     # Flask-Session creates each session file with mode 0600 (owner-only).
-    SESSION_TYPE = "filesystem"
-    SESSION_FILE_DIR = os.environ.get("SESSION_FILE_DIR", "/tmp/flask_session")
+    SESSION_TYPE = "cachelib"
+    SESSION_FILE_DIR = os.environ.get("SESSION_FILE_DIR", "/home/flask_session")
     SESSION_PERMANENT = False
 
     # ----------------------------------------------------------------

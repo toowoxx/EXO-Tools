@@ -56,13 +56,21 @@ if [ ! -d "${PS_MODULE_DIR}/ExchangeOnlineManagement" ]; then
 fi
 
 # ---------------------------------------------------------------------------
-# 3. Export PWSH_PATH so the Flask app can find it
+# 3. Ensure the Flask server-side session directory exists
+# ---------------------------------------------------------------------------
+SESSION_DIR="${SESSION_FILE_DIR:-/home/flask_session}"
+mkdir -p "${SESSION_DIR}"
+chmod 700 "${SESSION_DIR}"
+echo "[startup] SESSION_FILE_DIR=${SESSION_DIR}"
+
+# ---------------------------------------------------------------------------
+# 4. Export PWSH_PATH so the Flask app can find it
 # ---------------------------------------------------------------------------
 export PWSH_PATH="${PWSH_BIN}"
 echo "[startup] PWSH_PATH=${PWSH_PATH}"
 
 # ---------------------------------------------------------------------------
-# 4. Start the Flask application with gunicorn
+# 5. Start the Flask application with gunicorn
 # ---------------------------------------------------------------------------
 cd "${SITE_ROOT}"
 echo "[startup] Starting gunicorn on port ${PORT:-8000}..."

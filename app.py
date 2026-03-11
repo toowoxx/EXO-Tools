@@ -9,9 +9,11 @@ import re
 import subprocess
 import uuid
 from functools import wraps
+from urllib.parse import urlparse
 
 import msal
 import requests
+from cachelib import FileSystemCache
 from flask import (
     Flask,
     jsonify,
@@ -39,10 +41,34 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 app = Flask(__name__)
 app.config.from_object(Config)
-# Session(app) must be called after app.config.from_object so that
-# SESSION_TYPE and SESSION_FILE_DIR are already set when Flask-Session
-# initialises the server-side storage backend.
+
+# Ensure the session directory exists before Flask-Session initialises.
+# On Azure App Service /home is a persistent mount shared across all
+# instances, so sessions survive restarts and scale-out.  The directory
+# is created here so that any filesystem error surfaces at startup rather
+# than silently falling back to cookie-based sessions.
+_session_dir = app.config.get("SESSION_FILE_DIR", "/home/flask_session")
+os.makedirs(_session_dir, exist_ok=True)
+# Wire up the cachelib FileSystemCache directly so Flask-Session uses the
+# modern, non-deprecated SESSION_TYPE="cachelib" path.
+app.config["SESSION_CACHELIB"] = FileSystemCache(
+    cache_dir=_session_dir,
+    threshold=500,
+    mode=0o600,
+)
 Session(app)
+
+# Warn loudly at startup if REDIRECT_URI is misconfigured (a common mistake
+# that causes a login loop: Azure AD redirects to the wrong URL and the
+# auth code is never handled).
+_redirect_uri = app.config.get("REDIRECT_URI", "")
+if not urlparse(_redirect_uri).path.rstrip("/").endswith("/callback"):
+    logger.warning(
+        "REDIRECT_URI (%s) does not end with /callback. "
+        "Authentication will fail. Set REDIRECT_URI to "
+        "https://<your-app>.azurewebsites.net/callback",
+        _redirect_uri,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -70,7 +96,18 @@ def _load_cache() -> msal.SerializableTokenCache:
 
 def _save_cache(cache: msal.SerializableTokenCache) -> None:
     if cache.has_state_changed:
-        session["token_cache"] = cache.serialize()
+        # Strip access tokens before persisting to the session.  Access tokens
+        # are large (~2 KB each) and short-lived; MSAL will silently refresh
+        # them using the stored refresh token.  Keeping them out of the session
+        # ensures the payload stays well below the 4 KB browser cookie limit
+        # in case server-side storage is ever bypassed.
+        #
+        # Note: the in-memory `cache` object is intentionally left intact so
+        # MSAL can continue using the cached access token for the remainder of
+        # this request.  Only the persisted (session) copy is stripped.
+        cache_data = json.loads(cache.serialize())
+        cache_data.pop("AccessToken", None)
+        session["token_cache"] = json.dumps(cache_data)
 
 
 def _get_token_from_cache(scopes: list[str] | None = None):

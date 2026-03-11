@@ -80,6 +80,18 @@ app.config["SESSION_CACHELIB"] = FileSystemCache(
 )
 Session(app)
 
+# Separate filesystem store for MSAL token caches.  Keeping tokens out of
+# the Flask session avoids the 4 KB browser cookie size limit entirely – the
+# session cookie carries only a tiny session-ID / user-identity dict while
+# the bulky MSAL blobs (refresh tokens, account metadata, etc.) live on disk.
+_msal_cache_dir = os.path.join(_session_dir, "msal_tokens")
+os.makedirs(_msal_cache_dir, exist_ok=True)
+_msal_store = FileSystemCache(
+    cache_dir=_msal_cache_dir,
+    threshold=500,
+    mode=0o600,
+)
+
 # Warn loudly at startup if REDIRECT_URI is misconfigured (a common mistake
 # that causes a login loop: Azure AD redirects to the wrong URL and the
 # auth code is never handled).
@@ -109,28 +121,32 @@ def _build_msal_app(cache: msal.SerializableTokenCache | None = None):
     )
 
 
-def _load_cache() -> msal.SerializableTokenCache:
+def _load_cache(oid: str | None = None) -> msal.SerializableTokenCache:
+    """Deserialise the MSAL token cache from the filesystem store."""
     cache = msal.SerializableTokenCache()
-    if session.get("token_cache"):
-        cache.deserialize(session["token_cache"])
+    oid = oid or session.get("user", {}).get("oid")
+    if oid:
+        raw = _msal_store.get(f"msal:{oid}")
+        if raw:
+            cache.deserialize(raw)
     return cache
 
 
-def _save_cache(cache: msal.SerializableTokenCache) -> None:
-    if cache.has_state_changed:
-        # Strip large short-lived token blobs before persisting to the
-        # session.  MSAL can silently re-acquire access tokens using the
-        # refresh token, and the ID token is already decoded into
-        # session["user"].  Removing both keeps the serialised cache
-        # under ~2 KB which fits comfortably inside the 4 KB cookie limit
-        # even if server-side session storage is ever unavailable.
-        #
-        # The in-memory `cache` object is left intact so MSAL can continue
-        # using cached tokens for the remainder of the current request.
-        cache_data = json.loads(cache.serialize())
-        cache_data.pop("AccessToken", None)
-        cache_data.pop("IdToken", None)
-        session["token_cache"] = json.dumps(cache_data)
+def _save_cache(cache: msal.SerializableTokenCache, oid: str | None = None) -> None:
+    """Persist the MSAL token cache to the filesystem store (never the session)."""
+    if not cache.has_state_changed:
+        return
+    oid = oid or session.get("user", {}).get("oid")
+    if not oid:
+        logger.warning("Cannot persist MSAL token cache: no user OID available")
+        return
+    # Strip large short-lived token blobs.  MSAL can silently re-acquire
+    # access tokens using the refresh token, and the ID token is already
+    # decoded into session["user"].
+    cache_data = json.loads(cache.serialize())
+    cache_data.pop("AccessToken", None)
+    cache_data.pop("IdToken", None)
+    _msal_store.set(f"msal:{oid}", json.dumps(cache_data), timeout=86400)
 
 
 def _get_token_from_cache(scopes: list[str] | None = None):
@@ -265,9 +281,8 @@ def callback():
 
     # Store only the essential identity claims.  The raw id_token_claims
     # dict can contain dozens of Azure AD-specific entries (group GUIDs,
-    # xms_* extension claims, nonce, etc.) that balloon the session payload
-    # well past the 4 KB browser cookie limit.  We persist only what the
-    # application actually reads.
+    # xms_* extension claims, nonce, etc.).  We persist only what the
+    # application actually reads – this keeps the session cookie tiny.
     claims = result.get("id_token_claims", {})
     session["user"] = {
         "name": claims.get("name", ""),
@@ -280,7 +295,11 @@ def callback():
         # fall through to the Graph API check automatically.
         "groups": claims.get("groups", []),
     }
-    _save_cache(cache)
+
+    # Persist the MSAL token cache to the *filesystem* (not the session).
+    # This is the key change that prevents the Set-Cookie header from
+    # exceeding the 4 KB browser limit.
+    _save_cache(cache, oid=claims.get("oid", ""))
 
     next_url = session.pop("next", url_for("index"))
     return redirect(next_url)
@@ -288,6 +307,10 @@ def callback():
 
 @app.route("/logout")
 def logout():
+    # Remove the user's MSAL token cache from the filesystem store.
+    oid = session.get("user", {}).get("oid")
+    if oid:
+        _msal_store.delete(f"msal:{oid}")
     session.clear()
     post_logout = url_for("index", _external=True)
     return redirect(

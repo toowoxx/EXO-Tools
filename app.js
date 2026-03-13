@@ -134,6 +134,16 @@ const permissionsLimiter = rateLimit({
 });
 app.use("/api/get-permissions", permissionsLimiter);
 
+// Auth route rate limiter: prevent brute-force / enumeration on login and
+// callback endpoints (30 attempts per 15 minutes per IP).
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: "Too many authentication attempts. Please try again later.",
+});
+
 // ---------------------------------------------------------------------------
 // MSAL token cache (filesystem-backed)
 // ---------------------------------------------------------------------------
@@ -270,7 +280,10 @@ async function checkGroupMembership(accessToken) {
   const groupId = config.ACCESS_GROUP_ID;
   if (!groupId) return true; // no restriction configured
 
-  // Graph API check
+  logger.info(`Checking group membership against ACCESS_GROUP_ID: ${groupId}`);
+
+  // Graph API check – throws on network/API error so callers can surface a
+  // meaningful message instead of silently treating failures as "not a member".
   try {
     const resp = await axios.post(
       `${config.GRAPH_API_BASE}/me/checkMemberObjects`,
@@ -281,12 +294,15 @@ async function checkGroupMembership(accessToken) {
       }
     );
     if (resp.status === 200) {
-      return (resp.data.value || []).includes(groupId);
+      const isMember = (resp.data.value || []).includes(groupId);
+      logger.info(`Group membership result: ${isMember ? "member – access granted" : "not a member – access denied"}`);
+      return isMember;
     }
+    throw new Error(`Unexpected HTTP status ${resp.status} from checkMemberObjects`);
   } catch (err) {
     logger.warn(`Group membership check failed: ${err.message}`);
+    throw err;
   }
-  return false;
 }
 
 // ---------------------------------------------------------------------------
@@ -300,6 +316,47 @@ function loginRequired(req, res, next) {
   }
   next();
 }
+
+// ---------------------------------------------------------------------------
+// Auth URL helper
+// ---------------------------------------------------------------------------
+
+/**
+ * Generate a fresh Microsoft login URL and store the CSRF state token in the
+ * session.  Returns null when MSAL cannot be reached (misconfiguration).
+ */
+async function buildAuthUrl(req) {
+  try {
+    const state = crypto.randomUUID();
+    req.session.state = state;
+    const cca = buildMsalApp();
+    return await cca.getAuthCodeUrl({
+      scopes: config.SCOPES,
+      redirectUri: config.REDIRECT_URI,
+      state,
+    });
+  } catch (err) {
+    logger.error(`Failed to build auth URL: ${err.message}`);
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// HTTP request logging
+// ---------------------------------------------------------------------------
+
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on("finish", () => {
+    const ms = Date.now() - start;
+    const user =
+      req.session && req.session.user
+        ? req.session.user.preferred_username || req.session.user.oid
+        : "anonymous";
+    logger.info(`${req.method} ${req.path} ${res.statusCode} ${ms}ms user=${user}`);
+  });
+  next();
+});
 
 // ---------------------------------------------------------------------------
 // Warn at startup if REDIRECT_URI is misconfigured
@@ -328,26 +385,16 @@ app.get("/", (req, res) => {
   res.render("dashboard", { title: "EXO Tools – Mailbox Permission Search", user: req.session.user });
 });
 
-app.get("/login", async (req, res) => {
+app.get("/login", authLimiter, async (req, res) => {
   if (req.session.user) {
     return res.redirect("/");
   }
 
-  const state = crypto.randomUUID();
-  req.session.state = state;
+  logger.info("Login page requested – generating auth URL");
 
-  let authUrl = null;
   let error = null;
-  try {
-    const cca = buildMsalApp();
-    const authCodeUrlParams = {
-      scopes: config.SCOPES,
-      redirectUri: config.REDIRECT_URI,
-      state,
-    };
-    authUrl = await cca.getAuthCodeUrl(authCodeUrlParams);
-  } catch (err) {
-    logger.error(`Failed to build auth URL: ${err.message}`);
+  const authUrl = await buildAuthUrl(req);
+  if (!authUrl) {
     error =
       "Could not reach the Microsoft login service. Please check the application configuration.";
   }
@@ -355,84 +402,119 @@ app.get("/login", async (req, res) => {
   res.render("login", { title: "EXO Tools – Sign In", authUrl, error });
 });
 
-app.get("/callback", async (req, res) => {
+app.get("/callback", authLimiter, async (req, res) => {
+  logger.info("Auth callback received");
+
   // CSRF guard
   if (req.query.state !== req.session.state) {
+    logger.warn("State mismatch in auth callback – possible CSRF or expired session");
+    const authUrl = await buildAuthUrl(req);
     return res
       .status(400)
-      .render("login", { title: "EXO Tools – Sign In",
-        authUrl: null,
-        error: "State mismatch. Please try again.",
+      .render("login", {
+        title: "EXO Tools – Sign In",
+        authUrl,
+        error: "Session expired or state mismatch. Please sign in again.",
       });
   }
 
   if (req.query.error) {
     const desc = req.query.error_description || "Unknown error";
+    logger.warn(`Azure AD returned an error: ${req.query.error} – ${desc}`);
+    const authUrl = await buildAuthUrl(req);
     return res
       .status(400)
-      .render("login", { title: "EXO Tools – Sign In",
-        authUrl: null,
+      .render("login", {
+        title: "EXO Tools – Sign In",
+        authUrl,
         error: `Authentication failed: ${desc}`,
       });
   }
 
+  // Exchange the auth code for tokens
+  let result;
+  const cca = buildMsalApp();
   try {
-    const cca = buildMsalApp();
-    const tokenRequest = {
+    result = await cca.acquireTokenByCode({
       code: req.query.code,
       scopes: config.SCOPES,
       redirectUri: config.REDIRECT_URI,
-    };
-    const result = await cca.acquireTokenByCode(tokenRequest);
-
-    // Group membership check
-    if (config.ACCESS_GROUP_ID) {
-      const isMember = await checkGroupMembership(result.accessToken);
-      if (!isMember) {
-        return res.status(403).render("login", { title: "EXO Tools – Sign In",
-          authUrl: null,
-          error: "Access denied. Your account is not in the required group.",
-        });
-      }
-    }
-
-    // Extract identity claims from the account object
-    const account = result.account;
-    if (!account || !account.localAccountId) {
-      logger.error(
-        "Azure AD token is missing the account identifier – cannot establish session"
-      );
-      return res.status(400).render("login", { title: "EXO Tools – Sign In",
-        authUrl: null,
-        error:
-          "Authentication failed: the identity token is missing required claims.",
-      });
-    }
-
-    const userOid = account.localAccountId;
-
-    req.session.user = {
-      name: account.name || "",
-      preferred_username: account.username || "",
-      oid: userOid,
-      tid: account.tenantId || "",
-      groups: [],
-    };
-
-    // Persist the MSAL token cache to the filesystem (not the session).
-    const cacheData = cca.getTokenCache().serialize();
-    saveMsalCache(userOid, cacheData);
-
-    const nextUrl = req.session.next || "/";
-    delete req.session.next;
-    res.redirect(nextUrl);
+    });
+    logger.info("Token acquired successfully");
   } catch (err) {
     logger.error(`Token acquisition failed: ${err.message}`);
-    return res.status(400).render("login", { title: "EXO Tools – Sign In",
-      authUrl: null,
-      error: `Could not acquire token: ${err.message}`,
+    const authUrl = await buildAuthUrl(req);
+    return res
+      .status(400)
+      .render("login", {
+        title: "EXO Tools – Sign In",
+        authUrl,
+        error: `Could not acquire token: ${err.message}`,
+      });
+  }
+
+  // Group membership check (separate try/catch to distinguish API errors from
+  // a definitive "not a member" result)
+  if (config.ACCESS_GROUP_ID) {
+    try {
+      const isMember = await checkGroupMembership(result.accessToken);
+      if (!isMember) {
+        const authUrl = await buildAuthUrl(req);
+        return res
+          .status(403)
+          .render("login", {
+            title: "EXO Tools – Sign In",
+            authUrl,
+            error: "Access denied. Your account is not in the required group.",
+          });
+      }
+    } catch (err) {
+      logger.error(`Group membership check error: ${err.message}`);
+      const authUrl = await buildAuthUrl(req);
+      return res
+        .status(503)
+        .render("login", {
+          title: "EXO Tools – Sign In",
+          authUrl,
+          error:
+            "Could not verify group membership. Please try again later.",
+        });
+    }
+  }
+
+  // Extract identity claims from the account object
+  const account = result.account;
+  if (!account || !account.localAccountId) {
+    logger.error(
+      "Azure AD token is missing the account identifier – cannot establish session"
+    );
+    const authUrl = await buildAuthUrl(req);
+    return res.status(400).render("login", {
+      title: "EXO Tools – Sign In",
+      authUrl,
+      error:
+        "Authentication failed: the identity token is missing required claims.",
     });
   }
+
+  const userOid = account.localAccountId;
+  logger.info(`User authenticated: ${account.username || userOid}`);
+
+  req.session.user = {
+    name: account.name || "",
+    preferred_username: account.username || "",
+    oid: userOid,
+    tid: account.tenantId || "",
+    groups: [],
+  };
+
+  // Persist the MSAL token cache to the filesystem (not the session).
+  saveMsalCache(userOid, cca.getTokenCache().serialize());
+
+  const nextUrl = req.session.next || "/";
+  delete req.session.next;
+  logger.info(`Redirecting authenticated user to: ${nextUrl}`);
+  res.redirect(nextUrl);
 });
 
 app.get("/logout", (req, res) => {
@@ -663,7 +745,28 @@ app.get("/health", (_req, res) => {
 const port = parseInt(process.env.PORT || "5000", 10);
 
 app.listen(port, "0.0.0.0", () => {
+  // Startup configuration summary – visible in Azure App Service Log Stream
+  // Sensitive values are masked to show only the first 8 characters.
+  const mask = (v) => (v && v.length > 0 ? `${v.substring(0, 8)}…` : "NOT SET");
+  logger.info("=".repeat(60));
   logger.info(`EXO Tools listening on http://0.0.0.0:${port}`);
+  logger.info(`NODE_ENV          : ${process.env.NODE_ENV || "not set (defaults to production)"}`);
+  logger.info(`Session directory : ${sessionDir}`);
+  logger.info("-".repeat(60));
+  logger.info("Azure AD / Auth");
+  logger.info(`  CLIENT_ID       : ${mask(config.CLIENT_ID)}`);
+  logger.info(`  TENANT_ID       : ${mask(config.TENANT_ID)}`);
+  logger.info(`  CLIENT_SECRET   : ${config.CLIENT_SECRET ? "set" : "NOT SET"}`);
+  logger.info(`  REDIRECT_URI    : ${config.REDIRECT_URI}`);
+  logger.info(`  ACCESS_GROUP_ID : ${config.ACCESS_GROUP_ID || "not set (all authenticated users allowed)"}`);
+  logger.info("-".repeat(60));
+  logger.info("Exchange Online");
+  logger.info(`  EXO_APP_ID      : ${mask(config.EXO_APP_ID)}`);
+  logger.info(`  EXO_ORGANIZATION: ${config.EXO_ORGANIZATION || "NOT SET"}`);
+  logger.info(`  EXO_CERT_PATH   : ${config.EXO_CERT_PATH || "NOT SET"} (exists: ${config.EXO_CERT_PATH ? fs.existsSync(config.EXO_CERT_PATH) : false})`);
+  logger.info(`  EXO_CERT_PW     : ${config.EXO_CERT_PASSWORD ? "set" : "not set"}`);
+  logger.info(`  PWSH_PATH       : ${config.PWSH_PATH}`);
+  logger.info("=".repeat(60));
 });
 
 module.exports = app;

@@ -33,7 +33,7 @@
       </svg>
       Sign in with Microsoft 365
     </a>
-    <% } else { %>
+    <% } else if (!error) { %>
     <div class="alert alert-warning d-flex align-items-center gap-2" role="alert">
       <i class="bi bi-gear-fill flex-shrink-0"></i>
       <span style="font-size:13px;">Authentication is not configured. Please contact your administrator.</span>

@@ -11,7 +11,7 @@ services:
       # Mount the directory containing your EXO PFX certificate
       - ./certs:/app/certs:ro
     environment:
-      - FLASK_ENV=development
+      - NODE_ENV=development
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5000/health"]

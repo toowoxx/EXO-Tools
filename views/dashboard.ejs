@@ -1,7 +1,4 @@
-{% extends "base.html" %}
-{% block title %}EXO Tools – Mailbox Permission Search{% endblock %}
-
-{% block body %}
+<%- include('partials/head') %>
 
 <!-- ── Fluent Shell Header (command bar) ─────────────────────── -->
 <header class="fui-header">
@@ -21,9 +18,9 @@
   <div class="fui-header-right">
     <div class="fui-header-persona d-none d-md-flex">
       <div class="fui-header-avatar" aria-hidden="true">
-        {{ (user.get('name') or user.get('preferred_username', 'U'))[0].upper() }}
+        <%= (user.name || user.preferred_username || 'U').charAt(0).toUpperCase() %>
       </div>
-      <span>{{ user.get('name') or user.get('preferred_username', '') }}</span>
+      <span><%= user.name || user.preferred_username || '' %></span>
     </div>
     <a href="/logout" class="fui-header-signout">
       <i class="bi bi-box-arrow-right" aria-hidden="true"></i>
@@ -200,8 +197,5 @@
 </div><!-- /fui-page-inner -->
 </main>
 
-{% endblock %}
-
-{% block scripts %}
-<script src="{{ url_for('static', filename='js/app.js') }}"></script>
-{% endblock %}
+<script src="/static/js/app.js"></script>
+<%- include('partials/foot') %>

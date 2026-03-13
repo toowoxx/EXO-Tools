@@ -1,7 +1,5 @@
-{% extends "base.html" %}
-{% block title %}EXO Tools – Sign In{% endblock %}
+<%- include('partials/head') %>
 
-{% block body %}
 <div class="fui-login-bg">
   <div class="fui-login-card">
 
@@ -16,16 +14,16 @@
     <p class="fui-login-sub">Mailbox Permission Search</p>
 
     <!-- Error message bar -->
-    {% if error %}
+    <% if (error) { %>
     <div class="alert alert-danger d-flex align-items-start gap-2 mb-4" role="alert">
       <i class="bi bi-exclamation-circle-fill flex-shrink-0 mt-1" style="font-size:15px;"></i>
-      <span style="font-size:13px;">{{ error }}</span>
+      <span style="font-size:13px;"><%- error %></span>
     </div>
-    {% endif %}
+    <% } %>
 
     <!-- Sign-in button -->
-    {% if auth_url %}
-    <a href="{{ auth_url }}" class="fui-msft-btn">
+    <% if (authUrl) { %>
+    <a href="<%= authUrl %>" class="fui-msft-btn">
       <!-- Microsoft 4-colour logo -->
       <svg width="20" height="20" viewBox="0 0 21 21" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
         <rect x="1" y="1" width="9" height="9" fill="#F25022"/>
@@ -35,12 +33,12 @@
       </svg>
       Sign in with Microsoft 365
     </a>
-    {% else %}
+    <% } else { %>
     <div class="alert alert-warning d-flex align-items-center gap-2" role="alert">
       <i class="bi bi-gear-fill flex-shrink-0"></i>
       <span style="font-size:13px;">Authentication is not configured. Please contact your administrator.</span>
     </div>
-    {% endif %}
+    <% } %>
 
     <hr class="fui-login-divider" />
 
@@ -51,4 +49,5 @@
 
   </div>
 </div>
-{% endblock %}
+
+<%- include('partials/foot') %>

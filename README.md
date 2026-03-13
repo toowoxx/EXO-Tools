@@ -22,7 +22,7 @@ A lightweight web application for Microsoft 365 administrators to quickly see **
 ```
 Browser
   │
-  ├─► Flask (Python) ──► Microsoft Graph API   (user search / autocomplete)
+  ├─► Express (Node.js) ──► Microsoft Graph API   (user search / autocomplete)
   │         │
   │         └──► PowerShell (ExchangeOnlineManagement) ──► Exchange Online
   │
@@ -40,7 +40,7 @@ Two Azure AD app registrations are required:
 
 ## Prerequisites
 
-- Python 3.11+ (for local dev or Azure App Service)  
+- Node.js 18+ (for local dev or Azure App Service)  
   *or* Docker (for containerised deployment)
 - PowerShell Core 7+ (`pwsh`) with the `ExchangeOnlineManagement` module ≥ 3.0.0
 - Two Azure AD app registrations (see below)
@@ -125,7 +125,7 @@ cp .env.example .env
 
 | Variable | Description |
 |---|---|
-| `SECRET_KEY` | Random string for Flask session signing |
+| `SECRET_KEY` | Random string for session signing |
 | `CLIENT_ID` | Web App registration client ID |
 | `CLIENT_SECRET` | Web App client secret |
 | `TENANT_ID` | Azure AD tenant ID |
@@ -170,12 +170,12 @@ az appservice plan create \
     --sku F1 \
     --is-linux
 
-# Create the web app (Python 3.12)
+# Create the web app (Node.js 22)
 az webapp create \
     --name exo-tools \
     --resource-group rg-exotools \
     --plan asp-exotools \
-    --runtime "PYTHON:3.12"
+    --runtime "NODE:22-lts"
 
 # Set startup command
 az webapp config set \
@@ -217,11 +217,9 @@ curl -X PUT \
 ### Option C – Local Development
 
 ```bash
-# Requires Python 3.11+ and PowerShell Core (pwsh) on PATH
+# Requires Node.js 18+ and PowerShell Core (pwsh) on PATH
 
-python -m venv .venv
-source .venv/bin/activate        # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
+npm install
 
 cp .env.example .env             # fill in values
 mkdir -p certs
@@ -230,7 +228,7 @@ cp /path/to/exo-cert.pfx certs/exo.pfx
 # Install the EXO PowerShell module (once)
 pwsh -Command "Install-Module ExchangeOnlineManagement -Scope CurrentUser -Force"
 
-FLASK_ENV=development python app.py
+NODE_ENV=development node app.js
 # Open http://localhost:5000
 ```
 
@@ -268,8 +266,8 @@ Increase `PS_TIMEOUT` (default 600 s) if you see timeouts.
 - All traffic should be served over HTTPS (Azure App Service enforces this).
 - The EXO certificate private key (PFX) never leaves the server.
 - The `userPrincipalName` input is validated against a strict regex before being passed to PowerShell.
-- Flask sessions are signed (HMAC) and marked `HttpOnly` + `SameSite=Lax`.
-- Set `SESSION_COOKIE_SECURE=True` (the default when `FLASK_ENV=production`) to enforce HTTPS-only cookies.
+- Sessions are signed (HMAC) and marked `HttpOnly` + `SameSite=Lax`.
+- Set `SESSION_COOKIE_SECURE=True` (the default when `NODE_ENV=production`) to enforce HTTPS-only cookies.
 - Restrict app access to authorised administrators via `ACCESS_GROUP_ID`.
 
 ---

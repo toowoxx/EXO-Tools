@@ -1,10 +1,10 @@
 # ============================================================
 # EXO Tools – Dockerfile
-# Builds a container with Python 3.12, PowerShell Core, and
+# Builds a container with Node.js 22, PowerShell Core, and
 # the ExchangeOnlineManagement module pre-installed.
 # ============================================================
 
-FROM python:3.12-slim
+FROM node:22-slim
 
 # ---------------------------------------------------------------------------
 # System dependencies + PowerShell Core
@@ -31,12 +31,12 @@ RUN pwsh -NonInteractive -NoProfile -Command \
     "Install-Module -Name ExchangeOnlineManagement -MinimumVersion '3.0.0' -Force -AllowClobber -Scope AllUsers -Repository PSGallery"
 
 # ---------------------------------------------------------------------------
-# Python application
+# Node.js application
 # ---------------------------------------------------------------------------
 WORKDIR /app
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
 
 COPY . .
 
@@ -49,11 +49,4 @@ USER appuser
 
 EXPOSE 5000
 
-# gunicorn: 2 workers, 10-minute timeout for long-running PS scripts
-CMD ["gunicorn", \
-     "--bind", "0.0.0.0:5000", \
-     "--workers", "2", \
-     "--timeout", "660", \
-     "--access-logfile", "-", \
-     "--error-logfile", "-", \
-     "app:app"]
+CMD ["node", "app.js"]

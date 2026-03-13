@@ -169,6 +169,8 @@ async function runPermissionCheck() {
 
   showLoading();
 
+  // Step 1: start the job – returns immediately with a jobId (HTTP 202).
+  let jobId;
   try {
     const res  = await fetch("/api/get-permissions", {
       method:  "POST",
@@ -178,15 +180,57 @@ async function runPermissionCheck() {
     const data = await res.json();
 
     if (!res.ok || data.error) {
-      showError(data.error || "Failed to retrieve permissions. Please try again.");
+      showError(data.error || "Failed to start permission check. Please try again.");
       return;
     }
 
-    allPermissions = data.permissions || [];
-    showResults();
+    jobId = data.jobId;
   } catch {
     showError("A network error occurred. Please try again.");
+    return;
   }
+
+  // Step 2: poll the job status every 3 seconds until done or failed.
+  // Allow up to ~15 minutes (300 polls × 3 s) before giving up client-side.
+  const maxPolls = 300;
+  for (let i = 0; i < maxPolls; i++) {
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+
+    try {
+      const res  = await fetch(`/api/get-permissions/${encodeURIComponent(jobId)}`);
+      const data = await res.json();
+
+      if (data.status === "done") {
+        allPermissions = data.permissions || [];
+        showResults();
+        return;
+      }
+
+      if (data.status === "error" || !res.ok) {
+        showError(data.error || "Permission check failed. Please try again.");
+        return;
+      }
+
+      // status === "pending" → update elapsed time and keep polling
+      updateLoadingElapsed(i);
+    } catch {
+      showError("A network error occurred. Please try again.");
+      return;
+    }
+  }
+
+  showError("The permission check is taking unusually long. Please try again later.");
+}
+
+function updateLoadingElapsed(pollIndex) {
+  const el = document.getElementById("loadingElapsed");
+  if (!el) return;
+  const totalSeconds = (pollIndex + 1) * 3;
+  const mins = Math.floor(totalSeconds / 60);
+  const secs = totalSeconds % 60;
+  el.textContent = mins > 0
+    ? `Elapsed: ${mins}m ${secs}s…`
+    : `Elapsed: ${secs}s…`;
 }
 
 // ---------------------------------------------------------------------------
@@ -224,6 +268,8 @@ function showLoading() {
   document.getElementById("loadingCard").classList.remove("d-none");
   document.getElementById("errorAlert").classList.add("d-none");
   document.getElementById("resultsCard").classList.add("d-none");
+  const el = document.getElementById("loadingElapsed");
+  if (el) el.textContent = "";
 }
 
 function showError(msg) {

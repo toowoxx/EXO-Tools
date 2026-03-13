@@ -114,12 +114,35 @@ app.use(
 // Rate limiting
 // ---------------------------------------------------------------------------
 
+// Azure App Service (and some reverse proxies) include the client port in the
+// X-Forwarded-For header (e.g. "91.37.41.151:59928").  With trust proxy: 1,
+// Express propagates that raw string as req.ip, which express-rate-limit
+// rejects as an invalid IP address.  This helper strips the port so every
+// rate-limiter receives a plain IP address as its key.
+function ipKey(req) {
+  const ip = req.ip || req.socket.remoteAddress || "";
+  // Bracket-notation IPv6 with port: "[2001:db8::1]:12345" → "[2001:db8::1]"
+  if (ip.startsWith("[")) {
+    return ip.replace(/\]:.*$/, "]");
+  }
+  // IPv4 with port: "1.2.3.4:12345" → "1.2.3.4" (exactly one colon)
+  const colonCount = (ip.match(/:/g) || []).length;
+  if (colonCount === 1) {
+    return ip.substring(0, ip.lastIndexOf(":"));
+  }
+  // Pure IPv4 or bare IPv6 – return as-is.
+  // An empty string here (no remote address at all) is an extreme edge case;
+  // Express always populates req.socket.remoteAddress for live TCP connections.
+  return ip || "unknown";
+}
+
 // General API rate limiter: 60 requests per minute per IP
 const apiLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 60,
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: ipKey,
   message: { error: "Too many requests, please try again later." },
 });
 app.use("/api/", apiLimiter);
@@ -131,6 +154,7 @@ const permissionsLimiter = rateLimit({
   max: 5,
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: ipKey,
   message: { error: "Too many permission check requests, please try again later." },
 });
 
@@ -163,6 +187,7 @@ const authLimiter = rateLimit({
   max: 30,
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: ipKey,
   message: "Too many authentication attempts. Please try again later.",
 });
 

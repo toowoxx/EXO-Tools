@@ -122,7 +122,7 @@ $results = [System.Collections.Generic.List[hashtable]]::new()
 # ---------------------------------------------------------------------------
 Write-Host "Retrieving all mailboxes..." -ForegroundColor Cyan
 try {
-    $allMailboxes = Get-Mailbox -ResultSize Unlimited -ErrorAction Stop
+    $allMailboxes = Get-EXOMailbox -ResultSize Unlimited -ErrorAction Stop
 } catch {
     Write-Error "Failed to retrieve mailboxes: $_"
     Disconnect-ExchangeOnline -Confirm:$false -ErrorAction SilentlyContinue

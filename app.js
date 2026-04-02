@@ -358,10 +358,36 @@ async function checkGroupMembership(accessToken) {
 
 function loginRequired(req, res, next) {
   if (!req.session.user) {
-    req.session.next = req.originalUrl;
+    // Only preserve same-origin relative paths as the post-login destination.
+    // Reject absolute URLs and protocol-relative URLs (//) to prevent open
+    // redirect abuse after a successful OAuth callback.
+    const url = req.originalUrl;
+    req.session.next = url.startsWith("/") && !url.startsWith("//") ? url : "/";
     return res.redirect("/login");
   }
   next();
+}
+
+// ---------------------------------------------------------------------------
+// Redirect safety helper
+// ---------------------------------------------------------------------------
+
+/**
+ * Validate a post-login redirect URL.
+ *
+ * Only same-origin relative paths are permitted (must start with '/' but NOT
+ * with '//' which browsers treat as protocol-relative, i.e. absolute URLs).
+ * Everything else – absolute URLs, protocol-relative URLs, or empty strings –
+ * falls back to '/' to prevent open redirect attacks (CWE-601).
+ *
+ * @param {string|undefined} url  The candidate redirect URL.
+ * @returns {string}              A safe, same-origin relative path.
+ */
+function safeRedirectUrl(url) {
+  if (typeof url === "string" && url.startsWith("/") && !url.startsWith("//")) {
+    return url;
+  }
+  return "/";
 }
 
 // ---------------------------------------------------------------------------
@@ -558,7 +584,10 @@ app.get("/callback", authLimiter, async (req, res) => {
   // Persist the MSAL token cache to the filesystem (not the session).
   saveMsalCache(userOid, cca.getTokenCache().serialize());
 
-  const nextUrl = req.session.next || "/";
+  // Use safeRedirectUrl to prevent open redirect attacks (CWE-601).
+  // Only same-origin relative paths (starting with '/' but not '//') are
+  // honoured; anything else falls back to '/'.
+  const nextUrl = safeRedirectUrl(req.session.next);
   delete req.session.next;
   logger.info(`Redirecting authenticated user to: ${nextUrl}`);
   res.redirect(nextUrl);

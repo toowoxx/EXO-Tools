@@ -2,10 +2,12 @@ name: CI
 
 on:
   push:
+    branches: [main]
   pull_request:
 
-env:
-  WORKFLOW_NODE_VERSION: "18"
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -14,17 +16,21 @@ jobs:
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [18, 20, 22]
     env:
       NODE_ENV: test
       SESSION_FILE_DIR: /tmp/exo-session
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - name: Set up Node.js 18
-        uses: actions/setup-node@v4
+      - name: Set up Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: ${{ env.WORKFLOW_NODE_VERSION }}
+          node-version: ${{ matrix.node-version }}
           cache: npm
 
       - name: Install dependencies
@@ -34,4 +40,46 @@ jobs:
         run: node -e "const app = require('./app'); if (typeof app !== 'function' || typeof app.use !== 'function') { throw new Error('Expected app.js to export an Express app'); } process.exit(0);"
 
       - name: Run tests
-        run: npm test --if-present
+        run: npm test
+
+  dependency-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # `npm ci --audit-signatures` is intentionally not used here because it is not supported by this runner toolchain.
+      - name: Audit dependencies (high+)
+        run: npm audit --audit-level=high
+
+  gitleaks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+
+      - name: Run gitleaks for push commit range
+        if: github.event_name == 'push'
+        run: |
+          if [ "${{ github.event.before }}" = "0000000000000000000000000000000000000000" ]; then
+            docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.28.0 dir /repo
+          else
+            docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.28.0 git /repo --log-opts="${{ github.event.before }}..${{ github.sha }}"
+          fi
+
+      - name: Run gitleaks for pull request merge content
+        if: github.event_name == 'pull_request'
+        run: docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.28.0 dir /repo

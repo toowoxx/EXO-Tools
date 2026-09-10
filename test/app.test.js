@@ -7,16 +7,71 @@ const request = require("supertest");
 const appModule = require("../app");
 const app = appModule;
 
-test("GET /health returns the expected health payload", async () => {
-  const response = await request(app)
-    .get("/health")
-    .expect(200)
-    .expect("Content-Type", /json/);
+const BUILD_ENV_KEYS = ["GIT_COMMIT", "BUILD_TIME"];
 
-  assert.deepEqual(response.body, {
-    status: "ok",
-    version: "1.0.0",
+/**
+ * Runs `fn` with the given build-metadata env vars applied, then restores the
+ * previous values. A value of `undefined` means "unset for the duration".
+ *
+ * app.js reads process.env per request, so stubbing here is sufficient — the
+ * app does not need to be re-required.
+ */
+async function withBuildEnv(overrides, fn) {
+  const saved = Object.fromEntries(
+    BUILD_ENV_KEYS.map((key) => [key, process.env[key]]),
+  );
+
+  const apply = (values) => {
+    for (const key of BUILD_ENV_KEYS) {
+      if (values[key] === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = values[key];
+      }
+    }
+  };
+
+  apply(overrides);
+  try {
+    return await fn();
+  } finally {
+    apply(saved);
+  }
+}
+
+test("GET /health falls back to 'unknown' build metadata when unset", async () => {
+  await withBuildEnv({ GIT_COMMIT: undefined, BUILD_TIME: undefined }, async () => {
+    const response = await request(app)
+      .get("/health")
+      .expect(200)
+      .expect("Content-Type", /json/);
+
+    assert.deepEqual(response.body, {
+      status: "ok",
+      version: "1.0.0",
+      commit: "unknown",
+      buildTime: "unknown",
+    });
   });
+});
+
+test("GET /health returns configured build metadata", async () => {
+  await withBuildEnv(
+    { GIT_COMMIT: "deadbeef", BUILD_TIME: "2026-09-10T12:00:00Z" },
+    async () => {
+      const response = await request(app)
+        .get("/health")
+        .expect(200)
+        .expect("Content-Type", /json/);
+
+      assert.deepEqual(response.body, {
+        status: "ok",
+        version: "1.0.0",
+        commit: "deadbeef",
+        buildTime: "2026-09-10T12:00:00Z",
+      });
+    },
+  );
 });
 
 test("unauthenticated GET / redirects to /login", async () => {

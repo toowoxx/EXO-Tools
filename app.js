@@ -21,10 +21,12 @@ const axios = require("axios");
 
 const config = require("./config");
 
-const buildMetadata = {
-  commit: process.env.GIT_COMMIT || "unknown",
-  buildTime: process.env.BUILD_TIME || "unknown",
-};
+function getBuildMetadata() {
+  return {
+    commit: process.env.GIT_COMMIT || "unknown",
+    buildTime: process.env.BUILD_TIME || "unknown",
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Logging
@@ -868,6 +870,7 @@ function parsePsJson(output) {
 // ---------------------------------------------------------------------------
 
 app.get("/health", (_req, res) => {
+  const buildMetadata = getBuildMetadata();
   res.json({
     status: "ok",
     version: "1.0.0",

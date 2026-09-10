@@ -36,6 +36,35 @@ test("GET /health returns the expected health payload", async () => {
   assert.equal(response.body.buildTime, "unknown");
 });
 
+test("GET /health returns configured build metadata", async () => {
+  const originalGitCommit = process.env.GIT_COMMIT;
+  const originalBuildTime = process.env.BUILD_TIME;
+  process.env.GIT_COMMIT = "deadbeef";
+  process.env.BUILD_TIME = "2026-09-10T12:00:00Z";
+
+  try {
+    const response = await request(app)
+      .get("/health")
+      .expect(200)
+      .expect("Content-Type", /json/);
+
+    assert.equal(response.body.commit, "deadbeef");
+    assert.equal(response.body.buildTime, "2026-09-10T12:00:00Z");
+  } finally {
+    if (originalGitCommit === undefined) {
+      delete process.env.GIT_COMMIT;
+    } else {
+      process.env.GIT_COMMIT = originalGitCommit;
+    }
+
+    if (originalBuildTime === undefined) {
+      delete process.env.BUILD_TIME;
+    } else {
+      process.env.BUILD_TIME = originalBuildTime;
+    }
+  }
+});
+
 test("unauthenticated GET / redirects to /login", async () => {
   const response = await request(app).get("/").expect(302);
 

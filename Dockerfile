@@ -8,6 +8,8 @@ FROM node:22-slim
 
 ARG GIT_COMMIT=unknown
 ARG BUILD_TIME=unknown
+ARG POWERSHELL_DEB_SHA256=79642721f0bc9baf07dafaab68ece1cbd822f86722492acf9b4031d41029a735
+ARG EXO_MODULE_SHA256=40d5d1d2c926c7a1318e9070492c9c462a134d7465cc8330756e23ac72a0ea6b
 
 ENV GIT_COMMIT=${GIT_COMMIT} \
     BUILD_TIME=${BUILD_TIME}
@@ -29,7 +31,9 @@ ADD https://github.com/PowerShell/PowerShell/releases/download/v7.4.6/powershell
 # ---------------------------------------------------------------------------
 ADD https://www.powershellgallery.com/api/v2/package/ExchangeOnlineManagement/3.0.0 /tmp/ExchangeOnlineManagement.3.0.0.nupkg
 
-RUN dpkg-deb --info /tmp/powershell.deb >/dev/null \
+RUN echo "${POWERSHELL_DEB_SHA256}  /tmp/powershell.deb" | sha256sum -c - \
+    && echo "${EXO_MODULE_SHA256}  /tmp/ExchangeOnlineManagement.3.0.0.nupkg" | sha256sum -c - \
+    && dpkg-deb --info /tmp/powershell.deb >/dev/null \
     && unzip -tq /tmp/ExchangeOnlineManagement.3.0.0.nupkg >/dev/null \
     && apt-get update \
     && apt-get install -y --no-install-recommends /tmp/powershell.deb \

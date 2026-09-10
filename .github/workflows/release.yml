@@ -68,10 +68,26 @@ jobs:
     environment: production
     permissions: {}
     env:
-      EXPECTED_COMMIT: ${{ github.sha }}
       PRODUCTION_BASE_URL_VAR: ${{ vars.PRODUCTION_BASE_URL }}
       PRODUCTION_BASE_URL_SECRET: ${{ secrets.PRODUCTION_BASE_URL }}
     steps:
+      - name: Resolve expected commit
+        id: expected_commit
+        run: |
+          if [ "${GITHUB_EVENT_NAME}" = "release" ]; then
+            expected_commit="$(git ls-remote "https://github.com/${GITHUB_REPOSITORY}" "refs/tags/${GITHUB_REF_NAME}^{}" | awk 'NR==1 {print $1}')"
+            if [ -z "$expected_commit" ]; then
+              expected_commit="$(git ls-remote "https://github.com/${GITHUB_REPOSITORY}" "refs/tags/${GITHUB_REF_NAME}" | awk 'NR==1 {print $1}')"
+            fi
+          else
+            expected_commit="${GITHUB_SHA}"
+          fi
+          if [ -z "$expected_commit" ]; then
+            echo "Could not resolve the expected release commit for ${GITHUB_REF_NAME}."
+            exit 1
+          fi
+          echo "value=$expected_commit" >> "$GITHUB_OUTPUT"
+
       - name: Resolve production base URL
         id: base_url
         run: |
@@ -93,11 +109,11 @@ jobs:
             if curl -fsS "${{ steps.base_url.outputs.value }}/health" -o /tmp/production-health.json; then
               actual_status="$(node -e "const fs=require('fs'); const body=JSON.parse(fs.readFileSync('/tmp/production-health.json','utf8')); process.stdout.write(String(body.status ?? ''));" )"
               actual_commit="$(node -e "const fs=require('fs'); const body=JSON.parse(fs.readFileSync('/tmp/production-health.json','utf8')); process.stdout.write(String(body.commit ?? ''));" )"
-              if [ "$actual_status" = "ok" ] && [ "$actual_commit" = "$EXPECTED_COMMIT" ]; then
+              if [ "$actual_status" = "ok" ] && [ "$actual_commit" = "${{ steps.expected_commit.outputs.value }}" ]; then
                 echo "Production health check passed."
                 exit 0
               fi
-              echo "Attempt $attempt/10: expected status=ok commit=$EXPECTED_COMMIT but received status=$actual_status commit=$actual_commit."
+              echo "Attempt $attempt/10: expected status=ok commit=${{ steps.expected_commit.outputs.value }} but received status=$actual_status commit=$actual_commit."
               cat /tmp/production-health.json
             else
               echo "Attempt $attempt/10: production /health endpoint is not ready yet."

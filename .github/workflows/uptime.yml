@@ -1,0 +1,41 @@
+name: Uptime Canary
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  production-health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: production
+    env:
+      PRODUCTION_BASE_URL_VAR: ${{ vars.PRODUCTION_BASE_URL }}
+      PRODUCTION_BASE_URL_SECRET: ${{ secrets.PRODUCTION_BASE_URL }}
+    steps:
+      - name: Resolve production base URL
+        id: base_url
+        run: |
+          base_url="${PRODUCTION_BASE_URL_VAR:-${PRODUCTION_BASE_URL_SECRET:-}}"
+          if [ -z "$base_url" ]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "Skipping uptime canary because PRODUCTION_BASE_URL is not configured."
+            exit 0
+          fi
+          base_url="${base_url%/}"
+          echo "configured=true" >> "$GITHUB_OUTPUT"
+          echo "value=$base_url" >> "$GITHUB_OUTPUT"
+
+      - name: Verify production /health endpoint
+        if: steps.base_url.outputs.configured == 'true'
+        run: |
+          curl -fsS "${{ steps.base_url.outputs.value }}/health" -o /tmp/uptime-health.json
+          actual_status="$(node -e "const fs=require('fs'); const body=JSON.parse(fs.readFileSync('/tmp/uptime-health.json','utf8')); process.stdout.write(String(body.status ?? ''));" )"
+          if [ "$actual_status" != "ok" ]; then
+            echo "Expected production health status 'ok' but received '$actual_status'."
+            cat /tmp/uptime-health.json
+            exit 1
+          fi

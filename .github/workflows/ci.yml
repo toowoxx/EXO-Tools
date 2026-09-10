@@ -73,8 +73,13 @@ jobs:
 
       - name: Run gitleaks for push commit range
         if: github.event_name == 'push'
-        run: docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.28.0 git --source=/repo --log-opts="${{ github.event.before }}..${{ github.sha }}"
+        run: |
+          if [ "${{ github.event.before }}" = "0000000000000000000000000000000000000000" ]; then
+            docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.28.0 dir --source=/repo
+          else
+            docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.28.0 git --source=/repo --log-opts="${{ github.event.before }}..${{ github.sha }}"
+          fi
 
-      - name: Run gitleaks for pull request commit range
+      - name: Run gitleaks for pull request merge content
         if: github.event_name == 'pull_request'
-        run: docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.28.0 git --source=/repo --log-opts="${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}"
+        run: docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.28.0 dir --source=/repo

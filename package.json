@@ -14,7 +14,7 @@
   "license": "UNLICENSED",
   "private": true,
   "dependencies": {
-    "@azure/msal-node": "^3.8.9",
+    "@azure/msal-node": "^6.0.0",
     "axios": "^1.18.0",
     "dotenv": "^17.3.1",
     "ejs": "^5.0.1",

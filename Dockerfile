@@ -37,12 +37,13 @@ RUN echo "${POWERSHELL_DEB_SHA256}  /tmp/powershell.deb" | sha256sum -c - \
     && unzip -tq /tmp/ExchangeOnlineManagement.3.0.0.nupkg >/dev/null \
     && apt-get update \
     && apt-get install -y --no-install-recommends /tmp/powershell.deb \
+    && mkdir -p /tmp/exo-module \
     && mkdir -p /usr/local/share/powershell/Modules/ExchangeOnlineManagement/3.0.0 \
-    && unzip -q /tmp/ExchangeOnlineManagement.3.0.0.nupkg \
-         -d /usr/local/share/powershell/Modules/ExchangeOnlineManagement/3.0.0 \
+    && unzip -q /tmp/ExchangeOnlineManagement.3.0.0.nupkg -d /tmp/exo-module \
+    && cp -R /tmp/exo-module/. /usr/local/share/powershell/Modules/ExchangeOnlineManagement/3.0.0/ \
     && pwsh -NonInteractive -NoProfile -Command "Import-Module ExchangeOnlineManagement; exit 0" \
     && apt-get clean \
-    && rm -rf /var/lib/apt/lists/* /tmp/powershell.deb /tmp/ExchangeOnlineManagement.3.0.0.nupkg
+    && rm -rf /var/lib/apt/lists/* /tmp/powershell.deb /tmp/ExchangeOnlineManagement.3.0.0.nupkg /tmp/exo-module
 
 # ---------------------------------------------------------------------------
 # Node.js application

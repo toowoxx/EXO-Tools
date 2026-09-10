@@ -58,9 +58,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Skip signature verification
-        run: 'echo "Skipping signature verification in CI: npm ci does not support --audit-signatures on this runner."'
-
+      # `npm ci --audit-signatures` is intentionally not used here because it is not supported by this runner toolchain.
       - name: Audit dependencies (high+)
         run: npm audit --audit-level=high
 

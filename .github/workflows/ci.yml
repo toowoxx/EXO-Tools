@@ -40,7 +40,7 @@ jobs:
         run: node -e "const app = require('./app'); if (typeof app !== 'function' || typeof app.use !== 'function') { throw new Error('Expected app.js to export an Express app'); } process.exit(0);"
 
       - name: Run tests
-        run: npm test --if-present
+        run: npm test
 
   dependency-audit:
     runs-on: ubuntu-latest

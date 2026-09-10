@@ -4,8 +4,25 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const request = require("supertest");
 
+const originalGitCommit = process.env.GIT_COMMIT;
+const originalBuildTime = process.env.BUILD_TIME;
+delete process.env.GIT_COMMIT;
+delete process.env.BUILD_TIME;
+
 const appModule = require("../app");
 const app = appModule;
+
+if (originalGitCommit === undefined) {
+  delete process.env.GIT_COMMIT;
+} else {
+  process.env.GIT_COMMIT = originalGitCommit;
+}
+
+if (originalBuildTime === undefined) {
+  delete process.env.BUILD_TIME;
+} else {
+  process.env.BUILD_TIME = originalBuildTime;
+}
 
 test("GET /health returns the expected health payload", async () => {
   const response = await request(app)
@@ -15,10 +32,8 @@ test("GET /health returns the expected health payload", async () => {
 
   assert.equal(response.body.status, "ok");
   assert.equal(response.body.version, "1.0.0");
-  assert.equal(typeof response.body.commit, "string");
-  assert.equal(typeof response.body.buildTime, "string");
-  assert.ok(response.body.commit.length > 0);
-  assert.ok(response.body.buildTime.length > 0);
+  assert.equal(response.body.commit, "unknown");
+  assert.equal(response.body.buildTime, "unknown");
 });
 
 test("unauthenticated GET / redirects to /login", async () => {

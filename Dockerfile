@@ -29,7 +29,9 @@ ADD https://github.com/PowerShell/PowerShell/releases/download/v7.4.6/powershell
 # ---------------------------------------------------------------------------
 ADD https://www.powershellgallery.com/api/v2/package/ExchangeOnlineManagement/3.0.0 /tmp/ExchangeOnlineManagement.3.0.0.nupkg
 
-RUN apt-get update \
+RUN dpkg-deb --info /tmp/powershell.deb >/dev/null \
+    && unzip -tq /tmp/ExchangeOnlineManagement.3.0.0.nupkg >/dev/null \
+    && apt-get update \
     && apt-get install -y --no-install-recommends /tmp/powershell.deb \
     && mkdir -p /usr/local/share/powershell/Modules/ExchangeOnlineManagement/3.0.0 \
     && unzip -q /tmp/ExchangeOnlineManagement.3.0.0.nupkg \

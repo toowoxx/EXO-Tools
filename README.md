@@ -193,10 +193,13 @@ expected build is running after deployment.
     image.
 - **`.github/workflows/release.yml`**
   - triggers on published releases and `v*` tags,
-  - publishes `ghcr.io/toowoxx/exo-tools`,
+  - publishes `ghcr.io/toowoxx/exo-tools` from the tag-push path so an
+    existing tag does not get pushed twice when a GitHub release is later
+    published from it,
   - tags the image with the release tag, commit SHA, and `latest`,
   - fails on HIGH/CRITICAL Trivy findings,
-  - runs a post-deploy smoke check against the `production` environment and
+  - runs a post-deploy smoke check against the `production` environment for tag
+    pushes and published releases, and
     fails if the live `/health` payload is unhealthy or reports the wrong
     commit, or if `/login` is not reachable.
 - **`.github/workflows/uptime.yml`**

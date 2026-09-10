@@ -107,6 +107,7 @@ jobs:
         run: |
           actual_status="$(node -e "const fs=require('fs'); const body=JSON.parse(fs.readFileSync('/tmp/health.json','utf8')); process.stdout.write(String(body.status ?? ''));" )"
           actual_commit="$(node -e "const fs=require('fs'); const body=JSON.parse(fs.readFileSync('/tmp/health.json','utf8')); process.stdout.write(String(body.commit ?? ''));" )"
+          actual_build_time="$(node -e "const fs=require('fs'); const body=JSON.parse(fs.readFileSync('/tmp/health.json','utf8')); process.stdout.write(String(body.buildTime ?? ''));" )"
           if [ "$actual_status" != "ok" ]; then
             echo "Expected health status 'ok' but received '$actual_status'."
             cat /tmp/health.json
@@ -114,6 +115,11 @@ jobs:
           fi
           if [ "$actual_commit" != "$EXPECTED_COMMIT" ]; then
             echo "Expected health commit '$EXPECTED_COMMIT' but received '$actual_commit'."
+            cat /tmp/health.json
+            exit 1
+          fi
+          if [ "$actual_build_time" != "${{ steps.build_time.outputs.value }}" ]; then
+            echo "Expected health buildTime '${{ steps.build_time.outputs.value }}' but received '$actual_build_time'."
             cat /tmp/health.json
             exit 1
           fi

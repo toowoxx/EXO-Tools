@@ -73,20 +73,7 @@ jobs:
     steps:
       - name: Resolve expected commit
         id: expected_commit
-        run: |
-          if [ "${GITHUB_EVENT_NAME}" = "release" ]; then
-            expected_commit="$(git ls-remote "https://github.com/${GITHUB_REPOSITORY}" "refs/tags/${GITHUB_REF_NAME}^{}" | awk 'NR==1 {print $1}')"
-            if [ -z "$expected_commit" ]; then
-              expected_commit="$(git ls-remote "https://github.com/${GITHUB_REPOSITORY}" "refs/tags/${GITHUB_REF_NAME}" | awk 'NR==1 {print $1}')"
-            fi
-          else
-            expected_commit="${GITHUB_SHA}"
-          fi
-          if [ -z "$expected_commit" ]; then
-            echo "Could not resolve the expected release commit for ${GITHUB_REF_NAME}."
-            exit 1
-          fi
-          echo "value=$expected_commit" >> "$GITHUB_OUTPUT"
+        run: echo "value=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
 
       - name: Resolve production base URL
         id: base_url

@@ -36,7 +36,7 @@ test("GET /health returns the expected health payload", async () => {
   assert.equal(response.body.buildTime, "unknown");
 });
 
-test("GET /health returns configured build metadata", async () => {
+test("GET /health returns configured build metadata", { concurrency: false }, async () => {
   const originalGitCommit = process.env.GIT_COMMIT;
   const originalBuildTime = process.env.BUILD_TIME;
   process.env.GIT_COMMIT = "deadbeef";

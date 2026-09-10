@@ -19,10 +19,10 @@ jobs:
       SESSION_FILE_DIR: /tmp/exo-session
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Set up Node.js 18
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: ${{ env.WORKFLOW_NODE_VERSION }}
           cache: npm
@@ -35,3 +35,112 @@ jobs:
 
       - name: Run tests
         run: npm test --if-present
+
+  docker-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs:
+      - test
+    permissions:
+      contents: read
+    env:
+      IMAGE_NAME: exo-tools-ci:${{ github.sha }}
+      EXPECTED_COMMIT: ${{ github.sha }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Set build timestamp
+        id: build_time
+        run: echo "value=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+
+      - name: Create smoke-test .env
+        run: |
+          cp .env.example .env
+          cat <<'EOF' >> .env
+          SESSION_FILE_DIR=/tmp/exo-session
+          EOF
+
+      - name: Validate docker-compose configuration
+        run: docker compose config
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+
+      - name: Build container image
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          load: true
+          tags: ${{ env.IMAGE_NAME }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            GIT_COMMIT=${{ github.sha }}
+            BUILD_TIME=${{ steps.build_time.outputs.value }}
+
+      - name: Start smoke-test container
+        run: |
+          docker run -d --rm \
+            --name exo-tools-smoke \
+            --env-file .env \
+            -p 5000:5000 \
+            "${IMAGE_NAME}"
+
+      - name: Wait for container health endpoint
+        run: |
+          rm -f /tmp/health.json
+          deadline=$((SECONDS + 60))
+          while [ "$SECONDS" -lt "$deadline" ]; do
+            if curl -fsS http://127.0.0.1:5000/health -o /tmp/health.json; then
+              if node -e "const fs=require('fs'); const body=JSON.parse(fs.readFileSync('/tmp/health.json','utf8')); process.exit(body.status === 'ok' ? 0 : 1);"; then
+                echo "Container became healthy."
+                exit 0
+              fi
+            fi
+            sleep 2
+          done
+          echo "Container failed to become healthy within 60 seconds."
+          exit 1
+
+      - name: Assert health payload matches the built commit
+        run: |
+          actual_status="$(node -e "const fs=require('fs'); const body=JSON.parse(fs.readFileSync('/tmp/health.json','utf8')); process.stdout.write(String(body.status ?? ''));" )"
+          actual_commit="$(node -e "const fs=require('fs'); const body=JSON.parse(fs.readFileSync('/tmp/health.json','utf8')); process.stdout.write(String(body.commit ?? ''));" )"
+          if [ "$actual_status" != "ok" ]; then
+            echo "Expected health status 'ok' but received '$actual_status'."
+            cat /tmp/health.json
+            exit 1
+          fi
+          if [ "$actual_commit" != "$EXPECTED_COMMIT" ]; then
+            echo "Expected health commit '$EXPECTED_COMMIT' but received '$actual_commit'."
+            cat /tmp/health.json
+            exit 1
+          fi
+
+      - name: Assert unauthenticated root redirects to /login
+        run: |
+          status="$(curl -sS -o /tmp/root-response.txt -D /tmp/root-headers.txt -w '%{http_code}' http://127.0.0.1:5000/)"
+          if [ "$status" != "302" ]; then
+            echo "Expected GET / to return 302 but received $status."
+            cat /tmp/root-response.txt
+            exit 1
+          fi
+          if ! tr -d '\r' < /tmp/root-headers.txt | grep -qi '^location: /login$'; then
+            echo "Expected redirect location '/login'."
+            cat /tmp/root-headers.txt
+            exit 1
+          fi
+
+      - name: Assert PowerShell runtime prerequisites exist in the image
+        run: |
+          docker exec exo-tools-smoke pwsh -v
+          docker exec exo-tools-smoke pwsh -NonInteractive -NoProfile -Command "Import-Module ExchangeOnlineManagement; exit 0"
+
+      - name: Dump container logs on failure
+        if: failure()
+        run: docker logs exo-tools-smoke || true
+
+      - name: Tear down smoke-test container
+        if: always()
+        run: docker rm -f exo-tools-smoke || true

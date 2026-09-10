@@ -165,6 +165,61 @@ The test suite is a lightweight smoke/regression check for core app behavior so
 dependency updates can be validated without live Azure, Graph, or PowerShell
 calls.
 
+The `/health` endpoint returns:
+
+```json
+{
+  "status": "ok",
+  "version": "1.0.0",
+  "commit": "unknown",
+  "buildTime": "unknown"
+}
+```
+
+`status` and `version` are stable application-health fields; `commit` and
+`buildTime` are populated at image build time so smoke tests can verify the
+expected build is running after deployment.
+
+## GitHub Actions checks
+
+- **`.github/workflows/ci.yml`**
+  - runs `npm ci` and `npm test`,
+  - validates `docker-compose.yml` with `docker compose config`,
+  - builds the Docker image with Buildx + GitHub Actions cache,
+  - starts the container with a throwaway `.env`,
+  - fails if `/health` never becomes ready, if `/health` does not report
+    `status: ok` with the current commit SHA, if `GET /` stops redirecting to
+    `/login`, or if `pwsh` / `ExchangeOnlineManagement` are missing from the
+    image.
+- **`.github/workflows/release.yml`**
+  - triggers on published releases and `v*` tags,
+  - publishes `ghcr.io/toowoxx/exo-tools`,
+  - tags the image with the release tag, commit SHA, and `latest`,
+  - fails on HIGH/CRITICAL Trivy findings,
+  - runs a post-deploy smoke check against the `production` environment and
+    fails if the live `/health` payload is unhealthy or reports the wrong
+    commit, or if `/login` is not reachable.
+- **`.github/workflows/uptime.yml`**
+  - runs every 15 minutes (and on manual dispatch),
+  - fails if the configured production `/health` endpoint stops returning
+    `status: ok`.
+
+`startup.sh` is still the Azure App Service bootstrap path, but the Docker image
+installs PowerShell Core and `ExchangeOnlineManagement` during the image build.
+The CI smoke test therefore verifies those runtime prerequisites directly inside
+the container instead of running `startup.sh`.
+
+### Required GitHub environment configuration
+
+Create a GitHub **Environment** named `production` and define
+`PRODUCTION_BASE_URL` there as either an environment variable or secret. The
+release and uptime workflows skip cleanly when it is unset, which lets the
+workflows exist before production smoke testing is wired up.
+
+### Container image
+
+- GHCR image: `ghcr.io/toowoxx/exo-tools`
+
 ### Option A – Docker (recommended for Azure Container Apps / self-hosted)
 
 ```bash

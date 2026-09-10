@@ -6,29 +6,37 @@
 
 FROM node:22-slim
 
+ARG GIT_COMMIT=unknown
+ARG BUILD_TIME=unknown
+
+ENV GIT_COMMIT=${GIT_COMMIT} \
+    BUILD_TIME=${BUILD_TIME}
+
 # ---------------------------------------------------------------------------
 # System dependencies + PowerShell Core
 # ---------------------------------------------------------------------------
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        wget \
         curl \
-        apt-transport-https \
-        software-properties-common \
         ca-certificates \
-    && wget -q https://packages.microsoft.com/config/debian/12/packages-microsoft-prod.deb \
-         -O /tmp/packages-microsoft-prod.deb \
-    && dpkg -i /tmp/packages-microsoft-prod.deb \
-    && rm /tmp/packages-microsoft-prod.deb \
-    && apt-get update \
-    && apt-get install -y --no-install-recommends powershell \
+        unzip \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
+
+ADD https://github.com/PowerShell/PowerShell/releases/download/v7.4.6/powershell_7.4.6-1.deb_amd64.deb /tmp/powershell.deb
 
 # ---------------------------------------------------------------------------
 # Pre-install ExchangeOnlineManagement PowerShell module
 # ---------------------------------------------------------------------------
-RUN pwsh -NonInteractive -NoProfile -Command \
-    "Install-Module -Name ExchangeOnlineManagement -MinimumVersion '3.0.0' -Force -AllowClobber -Scope AllUsers -Repository PSGallery"
+ADD https://www.powershellgallery.com/api/v2/package/ExchangeOnlineManagement/3.0.0 /tmp/ExchangeOnlineManagement.3.0.0.nupkg
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends /tmp/powershell.deb \
+    && mkdir -p /usr/local/share/powershell/Modules/ExchangeOnlineManagement/3.0.0 \
+    && unzip -q /tmp/ExchangeOnlineManagement.3.0.0.nupkg \
+         -d /usr/local/share/powershell/Modules/ExchangeOnlineManagement/3.0.0 \
+    && pwsh -NonInteractive -NoProfile -Command "Import-Module ExchangeOnlineManagement; exit 0" \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* /tmp/powershell.deb /tmp/ExchangeOnlineManagement.3.0.0.nupkg
 
 # ---------------------------------------------------------------------------
 # Node.js application

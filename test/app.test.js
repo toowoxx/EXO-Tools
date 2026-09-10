@@ -13,10 +13,12 @@ test("GET /health returns the expected health payload", async () => {
     .expect(200)
     .expect("Content-Type", /json/);
 
-  assert.deepEqual(response.body, {
-    status: "ok",
-    version: "1.0.0",
-  });
+  assert.equal(response.body.status, "ok");
+  assert.equal(response.body.version, "1.0.0");
+  assert.equal(typeof response.body.commit, "string");
+  assert.equal(typeof response.body.buildTime, "string");
+  assert.ok(response.body.commit.length > 0);
+  assert.ok(response.body.buildTime.length > 0);
 });
 
 test("unauthenticated GET / redirects to /login", async () => {

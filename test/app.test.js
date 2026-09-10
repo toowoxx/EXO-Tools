@@ -4,65 +4,74 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const request = require("supertest");
 
-const originalGitCommit = process.env.GIT_COMMIT;
-const originalBuildTime = process.env.BUILD_TIME;
-delete process.env.GIT_COMMIT;
-delete process.env.BUILD_TIME;
-
 const appModule = require("../app");
 const app = appModule;
 
-if (originalGitCommit === undefined) {
-  delete process.env.GIT_COMMIT;
-} else {
-  process.env.GIT_COMMIT = originalGitCommit;
-}
+const BUILD_ENV_KEYS = ["GIT_COMMIT", "BUILD_TIME"];
 
-if (originalBuildTime === undefined) {
-  delete process.env.BUILD_TIME;
-} else {
-  process.env.BUILD_TIME = originalBuildTime;
-}
+/**
+ * Runs `fn` with the given build-metadata env vars applied, then restores the
+ * previous values. A value of `undefined` means "unset for the duration".
+ *
+ * app.js reads process.env per request, so stubbing here is sufficient — the
+ * app does not need to be re-required.
+ */
+async function withBuildEnv(overrides, fn) {
+  const saved = Object.fromEntries(
+    BUILD_ENV_KEYS.map((key) => [key, process.env[key]]),
+  );
 
-test("GET /health returns the expected health payload", async () => {
-  const response = await request(app)
-    .get("/health")
-    .expect(200)
-    .expect("Content-Type", /json/);
+  const apply = (values) => {
+    for (const key of BUILD_ENV_KEYS) {
+      if (values[key] === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = values[key];
+      }
+    }
+  };
 
-  assert.equal(response.body.status, "ok");
-  assert.equal(response.body.version, "1.0.0");
-  assert.equal(response.body.commit, "unknown");
-  assert.equal(response.body.buildTime, "unknown");
-});
-
-test("GET /health returns configured build metadata", { concurrency: false }, async () => {
-  const originalGitCommit = process.env.GIT_COMMIT;
-  const originalBuildTime = process.env.BUILD_TIME;
-  process.env.GIT_COMMIT = "deadbeef";
-  process.env.BUILD_TIME = "2026-09-10T12:00:00Z";
-
+  apply(overrides);
   try {
+    return await fn();
+  } finally {
+    apply(saved);
+  }
+}
+
+test("GET /health falls back to 'unknown' build metadata when unset", async () => {
+  await withBuildEnv({ GIT_COMMIT: undefined, BUILD_TIME: undefined }, async () => {
     const response = await request(app)
       .get("/health")
       .expect(200)
       .expect("Content-Type", /json/);
 
-    assert.equal(response.body.commit, "deadbeef");
-    assert.equal(response.body.buildTime, "2026-09-10T12:00:00Z");
-  } finally {
-    if (originalGitCommit === undefined) {
-      delete process.env.GIT_COMMIT;
-    } else {
-      process.env.GIT_COMMIT = originalGitCommit;
-    }
+    assert.deepEqual(response.body, {
+      status: "ok",
+      version: "1.0.0",
+      commit: "unknown",
+      buildTime: "unknown",
+    });
+  });
+});
 
-    if (originalBuildTime === undefined) {
-      delete process.env.BUILD_TIME;
-    } else {
-      process.env.BUILD_TIME = originalBuildTime;
-    }
-  }
+test("GET /health returns configured build metadata", async () => {
+  await withBuildEnv(
+    { GIT_COMMIT: "deadbeef", BUILD_TIME: "2026-09-10T12:00:00Z" },
+    async () => {
+      const response = await request(app)
+        .get("/health")
+        .expect(200)
+        .expect("Content-Type", /json/);
+
+      assert.deepEqual(response.body, {
+        status: "ok",
+        version: "1.0.0",
+        commit: "deadbeef",
+        buildTime: "2026-09-10T12:00:00Z",
+      });
+    },
+  );
 });
 
 test("unauthenticated GET / redirects to /login", async () => {

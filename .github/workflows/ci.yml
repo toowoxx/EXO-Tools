@@ -75,11 +75,11 @@ jobs:
         if: github.event_name == 'push'
         run: |
           if [ "${{ github.event.before }}" = "0000000000000000000000000000000000000000" ]; then
-            docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.28.0 dir --source=/repo
+            docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.28.0 dir /repo
           else
-            docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.28.0 git --source=/repo --log-opts="${{ github.event.before }}..${{ github.sha }}"
+            docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.28.0 git /repo --log-opts="${{ github.event.before }}..${{ github.sha }}"
           fi
 
       - name: Run gitleaks for pull request merge content
         if: github.event_name == 'pull_request'
-        run: docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.28.0 dir --source=/repo
+        run: docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.28.0 dir /repo

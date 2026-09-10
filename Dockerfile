@@ -4,7 +4,7 @@
 # the ExchangeOnlineManagement module pre-installed.
 # ============================================================
 
-FROM node:22-slim
+FROM node:26-slim
 
 ARG GIT_COMMIT=unknown
 ARG BUILD_TIME=unknown

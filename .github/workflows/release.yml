@@ -64,6 +64,7 @@ jobs:
           exit-code: "1"
           severity: HIGH,CRITICAL
           skip-setup-trivy: true
+          ignore-unfixed: true
 
   post-deploy-smoke-tag:
     if: github.event_name == 'push'

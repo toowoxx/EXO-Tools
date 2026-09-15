@@ -1,6 +1,6 @@
 # EXO Tools – Reverse Mailbox Permission Search
 
-A lightweight web application for Microsoft 365 administrators to quickly see **which mailboxes a specific user has delegated access to** in Exchange Online — the reverse of what the EAC shows ou[...]  
+A lightweight web application for Microsoft 365 administrators to quickly see **which mailboxes a specific user has delegated access to** in Exchange Online — the reverse of what the EAC shows
 
 > [!WARNING]
 > ## ⚠️ AI-Generated Code — Security Notice

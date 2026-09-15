@@ -1,10 +1,10 @@
 # ============================================================
 # EXO Tools – Dockerfile
-# Builds a container with Node.js 22, PowerShell Core, and
+# Builds a container with Node.js 24, PowerShell Core, and
 # the ExchangeOnlineManagement module pre-installed.
 # ============================================================
 
-FROM node:22-slim
+FROM node:24-slim
 
 ARG GIT_COMMIT=unknown
 ARG BUILD_TIME=unknown
